@@ -1,0 +1,144 @@
+
+# Apache Cassandra is a wide column store type
+# NoSQL database management system
+# http://cassandra.apache.org/
+
+# Cassandra app layers:
+# CLUSTER > NODE(S) > NODEKEYSPACE(S) > COLUMN FAMILY(S) > ROW(S) > COLUMN(S)
+-----------------------------------------------------------------
+# in Linux Terminal :
+$ sudo systemctl status cassandra
+
+# if inactive:
+$ sudo systemctl enable cassandra
+$ sudo systemctl start cassandra
+# Test cluster at 127.0.0.1:9042 ...
+
+# stop/disable firewall if necessary: 
+$ sudo ufw disable # (Ubuntu) 
+$ sudo systemctl stop firewalld # or
+$ sudo systemctl disable firewalld # (CentOS, RHEL) 
+
+$ nodetool status
+
+# Query database using CQL in cqlsh CLI
+
+cqlsh> SELECT * FROM system_schema.keyspaces;
+# shows databases aka 'keyspaces'
+
+cqlsh> describe keyspaces;
+
+#creating a database aka 'keyspace' called my_nosql_db
+cqlsh> CREATE KEYSPACE my_nosql_db WITH REPLICATION={'class': 'SimpleStrategy','replication_factor':1};
+# it specified replication placement strategy:
+# 'Simple Strategy' used only for a single datacenter and 1 rack
+# 1 replication factor - one copy of each row in a cluster
+
+cqlsh> use my_nosql_db;
+cqlsh:my_nosql_db> CREATE TABLE types(id varchar PRIMARY KEY, name varchar, details varchar);
+cqlsh:my_nosql_db> DESC KEYSPACE my_nosql_db; 
+# shows the table
+
+----------------------------------------------------------result:
+CREATE KEYSPACE my_nosql_db WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'}  AND durable_writes = true;
+
+CREATE TABLE my_nosql_db.types (
+    id text PRIMARY KEY,
+    details text,
+    name text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+------------------------------------------------------------------show only table :
+cqlsh:my_nosql_db> DESC TABLE types;
+------------------------------------------------------------------result:
+CREATE TABLE my_nosql_db.types (
+    id text PRIMARY KEY,
+    details text,
+    name text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+--------------------------------------------------------------------------
+cqlsh:my_nosql_db> INSERT INTO types(id, name, details) VALUES('type1',
+                'wide column store', 'Cassandra, HBase, BigTable');
+-----------------------------------------------------------------------
+cqlsh:my_nosql_db> SELECT * FROM types;
+--------------------------------------------------------------
+cqlsh:my_nosql_db> INSERT INTO types(id, name, details) VALUES('type2','key-value','Redis, Dynamo, Riak, Voldemort');
+
+cqlsh:my_nosql_db> INSERT INTO types(id, name, details) VALUES('type3','document','MongoDB,CouchDB, BaseX');
+cqlsh:my_nosql_db> INSERT INTO types(id, name, details) VALUES('type4','graph','AllegroGraph, Neo4j, Sones GraphDB, Trinity');
+-----------------------------------------------------------------------
+cqlsh:my_nosql_db> SELECT * FROM types;
+-------------------------------------------------------------- adding column:
+cqlsh:my_nosql_db> ALTER TABLE types ADD description varchar;
+-------------------------------------------------------------adding values to column
+UPDATE types SET description='XML, YAML, JSON or BSON encoding' WHERE id='type3';
+UPDATE types SET description='graph structures with nodes, edges and properties' WHERE id='type4';
+SELECT * FROM types;
+
+UPDATE types SET description='uses tables, rows, and columns' WHERE id='type1';
+UPDATE types SET description='dictionaries contain a collection of objects or records' WHERE id='type2';
+SELECT * FROM types;
+
+---------------------------
+
+#  if you want to query columns other than the primary key,
+#  you need to create a secondary index on them:
+
+cqlsh:dev> CREATE INDEX idx_name ON types(name);
+cqlsh:dev> SELECT * FROM types WHERE name = 'key-value';
+--------------------------- data change/UPDATE
+UPDATE types SET name='wide_column_store' WHERE id='type1';
+--------------------------------- add column:
+ALTER TABLE types ADD examples varchar;
+-----------------------------------drop column:
+ALTER TABLE types DROP examples;
+------------------------------------
+ALTER TABLE types ADD examples varchar;
+cqlsh:my_nosql_db> UPDATE types SET examples='Cassandra, HBase, BigTable' WHERE id='type1';                              
+cqlsh:my_nosql_db> UPDATE types SET examples='Redis, Dynamo, Riak, Voldemort' WHERE id='type2';                          
+cqlsh:my_nosql_db> UPDATE types SET examples='MongoDB,CouchDB, BaseX' WHERE id='type3';                              
+cqlsh:my_nosql_db> UPDATE types SET examples='AllegroGraph, Neo4j, Sones GraphDB, Trinity' WHERE id='type4';                       
+cqlsh:my_nosql_db> SELECT * FROM types;
+
+------------------------------------------------ reading 2 columns:
+cqlsh:my_nosql_db> SELECT name, examples FROM types;
+----------------------------------------------
+
+ALTER TABLE types ADD xyz varchar;
+# ALTER TABLE my_nosql_db.types ADD varia DROP xyz; 
+/ RENAME xyz TO varia;
+cqlsh:my_nosql_db> ALTER TABLE my_nosql_db.types RENAME xyz TO varia;
+#     "Cannot rename non PRIMARY KEY part xyz"
+ALTER TABLE types DROP xyz;
+ #     Cannot drop column xyz because it has dependent secondary indexes
+DROP INDEX inx_xyz;
+ALTER TABLE types DROP xyz;
+
+----------------------- . . .
+
+

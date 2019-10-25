@@ -1,0 +1,182 @@
+
+# MongoDB is a document-oriented database program.
+# It uses JSON-like documents with schema.
+
+# Run mongo shell in Linux Terminal;
+# Create databases with a collection called 'operSystems';
+# Query the collection:
+
+> mongo # CLI to ineract with and manage the database
+> show db
+> use myDatabase1 # opens this db, or creates 
+> show collections
+> db.createCollection('operSystems')
+
+# --------------------------------------------------------------
+# inserting first document to the collection:
+
+db.operSystems.insert({
+	name: 'Slackware',
+	year: 1993,
+	developer: 'Patrick Volkerding',
+	release: 14.2,
+	state: 'current',
+	date: Date()
+})
+
+# inserting more documents:
+
+db.operSystems.insertMany([
+{
+	name1: 'Solaris',
+	name: 'Oracle Solaris',
+	year: 1992,
+	developer: {
+		dev1: 'Sun Microsystems',
+		dev2: 'Oracle Corp.',
+		dev2_year: 2009
+	},
+	release: 11.4,
+	state: 'current',
+	date: Date()
+},
+{
+	name: 'RHEL',
+	year: 2000,
+	developer: 'Red Hat, Inc.',
+	release: 8.0,
+	state: 'current',
+	predecessor: 'Red Hat Linux',
+	date: Date()
+},
+{
+	name: 'Debian',
+	year: 1993,
+	developer: 'The Debian Project',
+	release: '10.1',
+	state: 'current',
+	date: Date()
+}
+])
+# ---------------------------
+
+db.operSystems.insert({
+	name: 'Arch Linux',
+	year: 2002,
+	developer: 'Aaron Griffin and others',
+	release: 'rolling:2019.10.01',
+	state: 'current',
+	date: Date()
+})
+# upserting:------------------adds data:
+
+db.operSystems.update({name:'Debian'},
+	{ $set: {userland: 'GNU'
+	        }
+	}
+)
+# --------------------
+
+db.operSystems.update({name:'Debian'},
+{
+	name: 'Debian',
+	year: 1993,
+	developer: 'The Debian Project',
+	release: '10.1',
+	state: 'current',
+	userland: 'GNU',
+	date: Date()
+}
+)
+# --------------------------
+db.operSystems.update({name:'Debian'},{$inc: {year:3}})
+# -----------------------
+
+db.operSystems.update({name:'RHEL'},
+	{ $set: {
+	marketing_target: {
+		commercial_market: [
+		"servers","mainframes",
+		"supercomputers","workstations"
+		]
+	}	
+	}}
+)
+# --------------------------
+
+db.operSystems.update({name:'Arch Linux'},
+	{ $set: {
+		package_manager: {
+			pacman: {
+				developer: 'Judd Vinet',
+				language: 'C'	
+			}
+		}
+	}}
+)
+#----------------------------new os:
+
+db.operSystems.insert(
+{
+	name: 'BSD',
+	year: 1977,
+	developer: 'Computer Systems Research Group',
+	release: '4.4-Lite2',
+	state: 'discontinued',
+	userland: 'BSD',
+	written_in: 'C',
+	date: Date()
+}
+)
+# -------------------------
+
+db.operSystems.insertMany([
+{
+	name: 'FreeBSD',
+	year: 1993,
+	developer: 'The Free BSD Project',
+	release: '12.0',
+	state: 'current',
+	package_manager:'pkg',
+	userland: 'BSD',
+	date: Date()
+},
+{
+	name: 'OpenBSD',
+	year: 1996,
+	developer: 'The OpenBSD Project',
+	release: '6.5',
+	state: 'current',
+	package_manager:'OpenBSD package tools',
+	userland: 'BSD',
+	date: Date()
+},
+{
+	name: 'CentOS',
+	year: 2004,
+	developer: 'The CentOS Project',
+	release: '8.0',
+	state: 'current',
+	package_manager: ['yum','dnf'],
+	date: Date()
+}
+])
+# ------------------- matching:
+
+db.operSystems.find({
+	package_manager: {
+	$elemMatch: { 
+		pacman: {developer:'Judd Vinet',
+		language: 'C'
+		}
+		}
+	}
+})
+# --------------------------- year>1993,<2010
+
+db.operSystems.find({
+	year: {
+	$elemMatch: { $gte: 1993, $lt: 2010}
+	}
+})
+
