@@ -1,0 +1,84 @@
+Cassandra db labs
+---------------------------------------------------
+# create key-space for 'biblioteka'
+cqlsh> CREATE KEYSPACE biblioteka WITH REPLICATION={'class': 'SimpleStrategy','replication_factor':1};
+
+cqlsh> use bilbioteka;
+
+# create column family 'ksiazki'
+cqlsh:biblioteka> CREATE TABLE ksiazki(id_ksiazki int PRIMARY KEY, isbn varchar, tytul varchar, cena double, wydawnictwo varchar, rok int); 
+# or text for varchar
+
+cqlsh:biblioteka> SELECT * FROM ksiazki; # a check
+
+cqlsh:biblioteka> INSERT INTO ksiazki(id_ksiazki, isbn, tytul, cena, wydawnictwo, rok) VALUES(1,'83-7197-669-0', 'Access 2002. Projektowanie baz danych. Księga eksperta', 79.0, 'Helion', 2002);
+
+cqlsh:biblioteka> INSERT INTO ksiazki(id_ksiazki, isbn, tytul, cena, wydawnictwo, rok) VALUES(2, '83-7197-786-7', 'Access 2002/XP PL dla każdego.', 65.0, 'Helion', 2003);
+
+cqlsh:biblioteka> INSERT INTO ksiazki(id_ksiazki, isbn, tytul, cena, wydawnictwo, rok) VALUES(3, '83-7197-691-7', 'ASP.NET. Vademecum profesjonalisty', 59, 'Helion', 2003);
+
+cqlsh:biblioteka> INSERT INTO ksiazki(id_ksiazki, isbn, tytul, cena, wydawnictwo, rok) VALUES(4, '83-7279-215-1', 'C++ XML', 41, 'Mikom', 2002);
+
+cqlsh:biblioteka> INSERT INTO ksiazki(id_ksiazki, isbn, tytul, cena, wydawnictwo, rok) VALUES(5, '83-7279-149-X', 'Dane w sieci WWW', 31, 'Mikom', 2001);
+
+# utworz rodzine kolumn o nazwie 'autorzy'
+  CREATE TABLE autorzy(id_autora int PRIMARY KEY, imie varchar, nazwisko varchar);
+
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(1,'Stephen', 'Forte');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(2,'Thomas', 'Howe');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(3,'Kurt', 'Wall');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(4,'Paul', 'Cassel');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(5,'Craig', 'Eddy');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(6,'Jon', 'Prince');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(7,'Scott', 'Worley');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(8,'Fabio', 'Arciniegas');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(9,'Peter', 'Buneman');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(10,'Serge', 'Abitebout');
+  INSERT INTO autorzy(id_autora, imie, nazwisko) VALUES(11,'Dan', 'Suciu');
+
+> SELECT * FROM autorzy;
+
+> SELECT id_ksiazki, tytul FROM ksiazki;
+
+> SELECT * FROM ksiazki WHERE id_ksiazki=4;
+
+   > SELECT tytul, cena FROM ksiazki WHERE cena=65; # gives error
+	InvalidRequest: Error from server: code=2200 [Invalid query] message="Cannot execute this query as it might involve data filtering and thus may have unpredictable performance. If you want to execute this query despite the performance unpredictability, use ALLOW FILTERING" 
+
+	> cqlsh:biblioteka> SELECT tytul, cena FROM ksiazki WHERE cena=65 ALLOW FILTERING;
+
+# Set index on the column 'cena'
+> CREATE INDEX index_cena ON ksiazki(cena);
+> SELECT tytul, cena FROM ksiazki WHERE cena=65;
+
+SELECT tytul, cena FROM ksiazki WHERE id_ksiazki > 3; # error
+	InvalidRequest: Error from server: code=2200 [Invalid query] message="Cannot execute this query as it might involve data filtering and thus may have unpredictable performance. If you want to execute this query despite the performance unpredictability, use ALLOW FILTERING"
+
+# add supercolumn id_autorow of type set<int> to "ksiazki" 
+
+# ALTER TABLE ksiazki ADD id_autorow int;   
+> ALTER TABLE ksiazki ADD id_autorow set<int>;
+
+# show "ksiazki" structure
+> DESCRIBE TABLE ksiazki  # same as:
+> DESC TABLE ksiazki;
+
+> SELECT id_ksiazki, id_autorow FROM ksiazki;
+
+UPDATE ksiazki SET id_autora={1,2,3} WHERE id_ksiazki=1;
+UPDATE ksiazki SET id_autora={4,5,6} WHERE id_ksiazki=2;
+UPDATE ksiazki SET id_autora={7} WHERE id_ksiazki=3;
+UPDATE ksiazki SET id_autora={8} WHERE id_ksiazki=4;
+UPDATE ksiazki SET id_autora={9,10,11} WHERE id_ksiazki=5;
+
+> SELECT tytul, id_autorow FROM ksiazki;
+
+> CREATE INDEX index_id_autora ON ksiazki(id_autorow);
+
+??? SELECT id_autora FROM autorzy WHERE imie='Thomas' AND nazwisko='Howe' ALLOW FILTERING;
+
+??? SELECT tytul FROM ksiazki where id_ksiazki=1;
+
+DESC KEYSPACE biblioteka;
+
+COPY ksiazki (id_ksiazki, tytul, cena) TO 'file_bibl-ksiazki.csv';

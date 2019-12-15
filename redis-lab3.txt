@@ -1,0 +1,107 @@
+Redis db labs:
+--------------------------------------
+# Insert 6 keys :
+
+key: '83-7197-669-0' 
+field tytul: 'Access 2002. Projektowanie baz danych. Ksiêga eksperta', 
+field cena: 79.0, 
+field wydawnictwo: 'Helion', 
+field rok: 2002 
+key: '83-7197-786-7', 
+field tytul: 'Access 2002/XP PL dla ka¿dego', 
+field cena: 65.0, 
+field wydawnictwo:'Helion', 
+field rok: 2003 
+key: '83-7197-691-7', 
+field tytul:'ASP.NET. Vademecum profesjonalisty', 
+field cena:59, 
+field wydawnictwo:'Helion', 
+field rok:2003 
+key: '83-7279-215-1', 
+field tytul:'C++ XML', 
+field cena:41, 
+field wydawnictwo:'Mikom', 
+field rok:2002 
+key: '83-7279-149-X', 
+field tytul:'Dane w sieci WWW', 
+field cena:31, 
+field wydawnictwo:'Mikom', 
+field rok:2001 
+
+ 
+127.0.0.1> hmset '83-7197-669-0' tytul  'Access 2002. Projektowanie baz danych. Ksiega eksperta' cena 79.0 wydawnictwo 'Helion' rok 2002
+
+127.0.0.1> hmset '83-7197-786-7' tytul 'Access 2002/XP PL dla kazdego' cena 65.0 wydawnictwo 'Helion' rok 2003
+
+127.0.0.1> hmset '83-7197-691-7' tytul 'ASP.NET. Vademecum profesjonalisty' cena 59 wydawnictwo 'Helion' rok 2003
+
+127.0.0.1> hmset '83-7279-215-1' tytul 'C++ XML' cena 41 wydawnictwo 'Mikom' rok 2002
+
+127.0.0.1> hmset '83-7279-149-X' tytul 'Dane w sieci WWW' cena 31 wydawnictwo 'Mikom' rok 2001
+
+# ------------------------------------------------
+# show all pairs field value for the key: '83-7197-691-7'
+
+127.0.0.1> hgetall 83-7197-691-7
+
+# show price for the key '83-7197-691-7'
+
+127.0.0.1> hget 83-7197-691-7 cena 
+  
+# show all keys:
+
+127.0.0.1> KEYS *
+
+   # 1) "83-7197-669-0"
+   # 2) "83-7197-786-7"
+   # 3) "83-7279-149-X"
+   # 4) "83-7279-215-1"
+   # 5) "83-7197-691-7"
+
+# show all the keys starting with "83"
+
+127.0.0.1> KEYS *83*
+
+# set automatic 10 second expiration for key '83-7197-691-7' 
+
+127.0.0.1> PEXPIRE 83-7197-691-7 10
+
+# remove key '83-7279-215-1'
+
+127.0.0.1> DEL 83-7279-215-1
+
+# show all keys:
+
+127.0.0.1> KEYS *
+-------------------------------------------------------
+# insert into database keys for Polish voivodeships(string):
+
+B 'podlaskie' 
+C 'kujawsko-pomorskie' 
+D 'dolnoœl¹skie' 
+E '³ódzkie' 
+F 'lubuskie' 
+G 'pomorskie' 
+K 'ma³opolskie' 
+L 'lubelskie' 
+N 'warmiñsko-mazurskie' 
+O 'opolskie' 
+P 'wielkopolskie' 
+R 'podkarpackie' 
+S 'œl¹skie' 
+T 'œwiêtokrzyskie' 
+W 'mazowieckie' 
+Z 'zachodniopomorskie' 
+
+127.0.0.1> set B 'podlaskie'
+...
+127.0.0.1> set Z 'zachodniopomorskie'
+ 
+ # show all one-letter keys:
+ 
+127.0.0.1> keys ?
+ 
+ # show voivodeship's name with key "P"
+
+127.0.0.1> get P
+
