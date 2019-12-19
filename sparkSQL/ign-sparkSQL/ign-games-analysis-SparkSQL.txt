@@ -1,0 +1,302 @@
+ 
+"20 years of Games", (ign.csv) analysis
+***************************************
+Apache Spark is a data processing engine.
+Spark SQL is a query language and a 
+"Spark module for structured data processing"
+***************************************************
+// In Zeppelin notebook:
+
+import org.apache.spark.sql._
+val gameInfosDF=spark.read.
+ format("org.apache.spark.csv").
+ option("header", true).
+ option("inferSchema", true).
+ csv("~/Documents/BigData/datasets/ign.csv").cache()
+ 
+gameInfosDF.printSchema
+
+
+ root
+ |-- _c0: integer (nullable = true)
+ |-- score_phrase: string (nullable = true)
+ |-- title: string (nullable = true)
+ |-- url: string (nullable = true)
+ |-- platform: string (nullable = true)
+ |-- score: double (nullable = true)
+ |-- genre: string (nullable = true)
+ |-- editors_choice: string (nullable = true)
+ |-- release_year: integer (nullable = true)
+ |-- release_month: integer (nullable = true)
+ |-- release_day: integer (nullable = true)
+ ---------------------------------------------
+ 
+ 
+// collecting score_phrases for specific scores
+  
+gameInfosDF
+.select($"score_phrase", $"score")
+.groupBy("score_phrase")
+.agg(collect_set("score"))
+.show()
+
++------------+--------------------+
+|score_phrase|  collect_set(score)|
++------------+--------------------+
+|     Amazing|[9.0, 9.9, 9.4, 9...|
+|        Okay|[6.3, 6.1, 6.4, 6...|
+|       Great|[8.3, 8.8, 8.5, 8...|
+|  Unbearable|[1.0, 1.1, 1.4, 1...|
+|        Good|[7.9, 7.7, 7.3, 7...|
+|         Bad|[4.9, 4.4, 4.5, 4...|
+|    Disaster|     [0.8, 0.5, 0.7]|
+|       Awful|[3.3, 3.5, 3.1, 3...|
+|    Mediocre|[5.7, 5.0, 5.1, 5...|
+| Masterpiece|              [10.0]|
+|     Painful|[2.0, 2.1, 2.7, 2...|
++------------+--------------------+
+
+-----------------------------------
+
+//min max score for title:
+
+gameInfosDF  //.select($"title", $"score")
+.groupBy("title")
+.agg(min("score") as "min score", max("score") as "max score")
+.show()
+
++--------------------+---------+---------+
+|               title|min score|max score|
++--------------------+---------+---------+
+|Rival Schools: Un...|      8.0|      8.0|
+|         Buck Bumble|      7.2|      7.2|
+|               Joust|      6.1|     10.0|
+|Malibu Bikini Vol...|      7.0|      7.0|
+|Legacy of Kain: S...|      9.1|      9.3|
+|   Top Gear Pocket 2|      8.0|      8.0|
+|        Virtua Cop 2|      5.2|      5.2|
+|Monster Rancher B...|      7.0|      7.0|
+|       Virtua Tennis|      3.5|      9.4|
+                   ....
+
+-------------------------------------------
+
+//counting scores
+
+gameInfosDF
+.groupBy("score")
+.count()
+.orderBy(gameInfosDF("score").desc)
+.show()
+
++-----+-----+
+|score|count|
++-----+-----+
+| 10.0|   55|
+|  9.9|    6|
+|  9.8|   19|
+|  9.7|   28|
+     ...
+---------------------------------
+
+// max score for score_phrase
+
+gameInfosDF
+.groupBy(gameInfosDF("score_phrase"))
+.agg(max("score") as "maxScore")
+.orderBy(desc("maxScore"))
+.show()
+
++------------+--------+
+|score_phrase|maxScore|
++------------+--------+
+| Masterpiece|    10.0|
+|     Amazing|     9.9|
+|       Great|     8.9|
+|        Good|     7.9|
+|        Okay|     6.9|
+|    Mediocre|     5.9|
+|         Bad|     4.9|
+|       Awful|     3.9|
+|     Painful|     2.9|
+|  Unbearable|     1.9|
+|    Disaster|     0.8|
++------------+--------+
+
+--------------------------------------
+
+// 9. Show 3 highest rated games, released in 2016 for PC platform
+      
+gameInfosDF
+.select($"title", $"score", $"release_year")
+.distinct
+.filter(gameInfosDF("release_year") === 2016 && gameInfosDF("platform") === "PC")
+.orderBy(gameInfosDF("score").desc)
+.limit(3)
+.show()
+
++---------+-----+------------+
+|    title|score|release_year|
++---------+-----+------------+
+|Undertale| 10.0|        2016|
+| HTC Vive|  9.3|        2016|
+|   XCOM 2|  9.3|        2016|
++---------+-----+------------+
+
+--------------------------------
+
+// 10. MIN MAX score_phase (ascending)
+
+gameInfosDF
+.groupBy(gameInfosDF("score_phrase"))
+.agg( min("score") as "minScore", max("score") as "maxScore")
+.orderBy("minScore")
+.show()
+
++------------+--------+--------+
+|score_phrase|minScore|maxScore|
++------------+--------+--------+
+|    Disaster|     0.5|     0.8|
+|  Unbearable|     1.0|     1.9|
+|     Painful|     2.0|     2.9|
+|       Awful|     3.0|     3.9|
+|         Bad|     4.0|     4.9|
+|    Mediocre|     5.0|     5.9|
+|        Okay|     6.0|     6.9|
+|        Good|     7.0|     7.9|
+|       Great|     8.0|     8.9|
+|     Amazing|     9.0|     9.9|
+| Masterpiece|    10.0|    10.0|
++------------+--------+--------+
+--------------------------------
+
+// (~11.) show number and avarage scores for games released 
+       each year starting from 2000 ,
+       reviews > 500
+
+gameInfosDF
+.filter(gameInfosDF("release_year") >= 2000)
+.groupBy("release_year")
+.agg((round(avg("score"),2) as "avgScore"), count("score") as "reviewCount")
+.where($"reviewCount" > 500)
+.orderBy("release_year")
+.show()
+
++------------+--------+-----------+
+|release_year|avgScore|reviewCount|
++------------+--------+-----------+
+|        2000|    6.69|       1045|
+|        2001|    7.12|        688|
+|        2002|    6.98|        936|
+|        2003|     7.2|        969|
+|        2004|    7.17|        997|
+|        2005|    7.22|       1088|
+|        2006|    6.73|       1208|
+|        2007|    6.63|       1610|
+|        2008|    6.45|       1915|
+|        2009|    6.84|       1687|
+|        2010|    6.93|       1363|
+|        2011|    7.05|       1073|
+|        2012|    7.42|        753|
+|        2013|    7.46|        696|
+|        2014|    7.47|        537|
++------------+--------+-----------+
+
+// 11b 
+
+%sql
+select release_year, count(score) as reviewCount, round(avg(score),2) as avgScore
+from games
+where release_year >= 2000
+group by release_year 
+order by release_year
+
+---------------------------------------
+// 11.
+// average scores for platforms with number of reviews > 500,
+// released after 2000
+
+gameInfosDF
+.filter(gameInfosDF("release_year") >= 2000)
+//.select($"platform", $"score")
+.groupBy(gameInfosDF("platform"))
+.agg(round(avg("score"),2) as "average", count("score") as "numReviews")
+.where($"numReviews" > 500)
+.orderBy(desc("numReviews"))
+.show()
+
++--------------------+-------+----------+
+|            platform|average|numReviews|
++--------------------+-------+----------+
+|                  PC|   7.18|      3014|
+|       PlayStation 2|   6.87|      1686|
+|            Xbox 360|    7.1|      1630|
+|                 Wii|    6.3|      1366|
+|       PlayStation 3|   7.19|      1356|
+|         Nintendo DS|   6.29|      1045|
+|            Wireless|   7.18|       910|
+|              iPhone|   7.29|       842|
+|                Xbox|   7.21|       821|
+|PlayStation Portable|   6.75|       633|
+|    Game Boy Advance|   6.63|       623|
+|            GameCube|   7.04|       509|
++--------------------+-------+----------+
+-------------------------------------------
+
+// 11c - same in Zeppelin %sql
+
+import org.apache.spark.sql._
+val gameInfosDF=spark.read.
+ format("org.apache.spark.csv").
+ option("header", true).
+ option("inferSchema", true).
+ csv("~/Documents/BigData/datasets/ign.csv").cache()
+gameInfosDF.createOrReplaceTempView("games")
+
+%sql
+select platform, round(avg(score),2) as avgScore, count(score) as numReviews
+from games
+where release_year >= 2000
+group by platform 
+order by numReviews desc
+limit 10
+----------------------------------
+
+// 12.
+// Check average scores for a chosen series of games,
+// put result in chronological order 
+
+gameInfosDF
+.select($"title",$"release_year", $"score")
+.filter(col("title").startsWith("Assassin's"))
+.groupBy(gameInfosDF("title"), gameInfosDF("release_year"))
+.agg(round(mean("score"),1) as "score")
+.orderBy(gameInfosDF("release_year"))
+.show()
+
++--------------------+------------+-----+
+|               title|release_year|score|
++--------------------+------------+-----+
+|    Assassin's Creed|        2007|  7.7|
+|Assassin's Creed:...|        2008|  7.0|
+|Assassin's Creed:...|        2008|  7.8|
+| Assassin's Creed II|        2009|  9.2|
+|Assassin's Creed ...|        2009|  8.0|
+|Assassin's Creed:...|        2009|  6.9|
+|Assassin's Creed:...|        2009|  8.3|
+|Assassin's Creed ...|        2010|  7.4|
+| Assassin's Creed II|        2010|  8.9|
+|Assassin's Creed ...|        2010|  7.0|
+|Assassin's Creed:...|        2010|  8.0|
+|Assassin's Creed ...|        2010|  7.4|
+|Assassin's Creed:...|        2010|  8.0|
+|Assassin's Creed:...|        2011|  8.0|
+|Assassin's Creed ...|        2011|  7.0|
+|Assassin's Creed:...|        2011|  8.5|
+|Assassin's Creed ...|        2011|  6.5|
+|Assassin's Creed III|        2012|  8.5|
+|Assassin's Creed ...|        2012|  7.2|
+|Assassin's Creed ...|        2013|  7.0|
++--------------------+------------+-----+
+only showing top 20 rows
+
