@@ -1,0 +1,274 @@
+ 
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
+
+val cities = spark.read.json(
+    "~/Documents/BigData/Zeppelin-notebook/Files/mondial-json/cities.json").cache()
+val countries = spark.read.json("~/Documents/BigData/Zeppelin-notebook/Files/mondial-json/countries.json").cache()
+--------------------------------------------------------------
+cities.printSchema()
+
+root
+ |-- _id: string (nullable = true)
+ |-- country: string (nullable = true)
+ |-- elevation: double (nullable = true)
+ |-- latitude: double (nullable = true)
+ |-- location: struct (nullable = true)
+ |    |-- coordinates: array (nullable = true)
+ |    |    |-- element: double (containsNull = true)
+ |    |-- type: string (nullable = true)
+ |-- longitude: double (nullable = true)
+ |-- name: string (nullable = true)
+ |-- other_names: array (nullable = true)
+ |    |-- element: string (containsNull = true)
+ |-- population: long (nullable = true)
+ |-- province: string (nullable = true)
+ 
+ countries.printSchema()
+ 
+ root
+ |-- _id: struct (nullable = true)
+ |    |-- $oid: string (nullable = true)
+ |-- area: double (nullable = true)
+ |-- capital: string (nullable = true)
+ |-- code: string (nullable = true)
+ |-- gdp: double (nullable = true)
+ |-- government: string (nullable = true)
+ |-- independence: struct (nullable = true)
+ |    |-- $date: string (nullable = true)
+ |-- inflation: double (nullable = true)
+ |-- name: string (nullable = true)
+ |-- population: array (nullable = true)
+ |    |-- element: struct (containsNull = true)
+ |    |    |-- value: long (nullable = true)
+ |    |    |-- year: long (nullable = true)
+ |-- unemployment: double (nullable = true)
+ 
+ ------------------------------------------
+
+ //16.//
+ 
+// explode() - is used for flattening rows in Spark
+
+countries.where("name = 'Poland'")
+.select(explode($"population"))
+.limit(3)
+.show()
+
++----------------+
+|             col|
++----------------+
+|[23929757, 1946]|
+|[24613684, 1950]|
+|[29405729, 1960]|
++----------------+
+--------------------------------
+
+countries
+.filter($"name" === "Poland")
+.select($"name", explode($"population").alias("population"))
+.select($"name",
+        $"population.year" as "year", 
+        $"population.value" as "value")
+.limit(3)
+.show()
+
++------+----+--------+
+|  name|year|   value|
++------+----+--------+
+|Poland|1946|23929757|
+|Poland|1950|24613684|
+|Poland|1960|29405729|
++------+----+--------+
+
+------------------------------
+
+countries
+.select($"name", explode($"population").alias("population"))
+.select($"name",
+        $"population.year" as "year", 
+        $"population.value" as "value")
+.filter($"year" === 2010)
+.limit(6)
+.show()
+
++-----------+----+---------+
+|       name|year|    value|
++-----------+----+---------+
+|    Austria|2010|  8375290|
+|   Slovenia|2010|  2046976|
+|     Russia|2010|142856536|
+|Netherlands|2010| 16577516|
+|    Estonia|2010|  1340127|
+|    Denmark|2010|  5534738|
++-----------+----+---------+
+
+--------------------------------------
+
+countries
+.select($"name", explode($"population").alias("population"))
+.select($"name",
+        $"population.value" as "value")
+.filter($"population.year" === 2010)
+.limit(6)
+.show()
+
++-----------+---------+
+|       name|    value|
++-----------+---------+
+|    Austria|  8375290|
+|   Slovenia|  2046976|
+|     Russia|142856536|
+|Netherlands| 16577516|
+|    Estonia|  1340127|
+|    Denmark|  5534738|
++-----------+---------+
+
+----------------------------------
+
+countries
+.select($"name", explode($"population").alias("population"))
+.select($"name",
+        $"population.year" as "year", 
+        $"population.value" as "value")
+.filter($"year" === 2010)
+.agg(min("value"), max("value"), sum("value"))
+.show()
+
++----------+----------+----------+
+|min(value)|max(value)|sum(value)|
++----------+----------+----------+
+|       596|1339724852|3545335747|
++----------+----------+----------+
+==============================================
+
+//17.//
+// most populated countries in 2010 or earlier 
+// if data is missing for that year
+
+countries
+.select($"name", explode($"population").alias("population"))
+.select($"name",
+        $"population.year" as "year", 
+        $"population.value" as "value")
+.filter($"year" <= 2010 && $"year" > 2000)
+.distinct()
+.orderBy(desc("value"))
+.limit(6)
+.show()
+
++-------------+----+----------+
+|         name|year|     value|
++-------------+----+----------+
+|        China|2010|1339724852|
+|        India|2001|1028610328|
+|United States|2010| 308745538|
+|    Indonesia|2010| 237641326|
+|       Brazil|2010| 190732694|
+|     Pakistan|2010| 173149306|
++-------------+----+----------+
+
+------------------------------------------
+
+//18.// 3 most populated countries in 2010
+
+countries
+.select($"name", explode($"population").alias("population"))
+.select($"name",
+        $"population.year" as "year", 
+        $"population.value" as "value")
+.filter($"year" <= 2010 && $"year" > 1995)
+.select("name")
+.dropDuplicates()
+.orderBy(desc("value"))
+.limit(3)
+.show()
+
++-------------+
+|         name|
++-------------+
+|        China|
+|        India|
+|United States|
++-------------+
+
+---------------------------------------------
+
+cities
+.join(countries, countries("code") === cities("country"))
+.select(explode(countries("population")).alias("countryPop"),
+        $"countryPop.year" as "year", 
+        $"countryPop.value" as "coPopValue",
+         countries("name") as "countryName",
+         cities("name") as "cityName",
+         cities("population") as "cityPop"
+       )
+        
+c.printSchema()
+
+root
+ |-- countryPop: struct (nullable = true)
+ |    |-- value: long (nullable = true)
+ |    |-- year: long (nullable = true)
+ |-- year: long (nullable = true)
+ |-- coPopValue: long (nullable = true)
+ |-- countryName: string (nullable = true)
+ |-- cityName: string (nullable = true)
+ |-- cityPop: long (nullable = true)
+ ----------------------------------------------
+ 
+ // 6 most populated cities in 2010
+ 
+ cities
+.join(countries, countries("code") === cities("country"))
+.select(explode(countries("population")).alias("countryPop"),
+        countries("name") as "countryName",
+        cities("name") as "city",
+        cities("population") as "cityPop")
+.select($"countryPop.year" as "year", 
+        $"countryPop.value" as "countryPopValue",
+        $"countryName",$"city",$"cityPop")
+.filter($"year" === 2010 && $"cityPop" > 50000)    
+.orderBy($"cityPop".desc)
+.limit(5)
+.show()
+
++----+---------------+-----------+---------+--------+
+|year|countryPopValue|countryName|     city| cityPop|
++----+---------------+-----------+---------+--------+
+|2010|     1339724852|      China| Shanghai|22315474|
+|2010|      142856536|     Russia|   Moskva|11979529|
+|2010|     1339724852|      China|  Beijing|11716620|
+|2010|      190732694|     Brazil|São Paulo|11152344|
+|2010|     1339724852|      China|  Tianjin|11090314|
++----+---------------+-----------+---------+--------+
+
+//19.// 5 countries with most populated cities in 2010
+    // city population > 50000
+
+cities
+.join(countries, countries("code") === cities("country"))
+.select(explode(countries("population")).alias("countryPop"),
+        $"countryPop.year" as "year", 
+        $"countryPop.value" as "countryPopValue",
+        countriesDF("name") as "countryName",
+        cities("name") as "city",
+        cities("population") as "cityPop")
+.select(
+        $"countryName",$"city",$"cityPop", $"year")
+.filter($"year" <= 2010 && $"year" > 2000 && 
+        $"cityPop" > 50000)    
+.orderBy($"cityPop".desc)
+.limit(5)
+.show()
+
++-----------+--------+--------+----+
+|countryName|    city| cityPop|year|
++-----------+--------+--------+----+
+|      China|Shanghai|22315474|2010|
+|     Turkey|Istanbul|13710512|2007|
+|      India|  Mumbai|12442373|2001|
+|     Russia|  Moskva|11979529|2010|
+|      China| Beijing|11716620|2010|
++-----------+--------+--------+----+
+

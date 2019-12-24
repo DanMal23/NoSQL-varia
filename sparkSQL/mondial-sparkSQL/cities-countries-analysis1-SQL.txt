@@ -1,0 +1,258 @@
+ 
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
+
+val cities = spark.read.json(
+    "/home/dona/Documents/BigData/Zeppelin-notebook/Files/mondial-json/cities.json").cache()
+val countries = spark.read.json("/home/dona/Documents/BigData/Zeppelin-notebook/Files/mondial-json/countries.json").cache()
+--------------------------------------------------------------
+cities.printSchema()
+
+root
+ |-- _id: string (nullable = true)
+ |-- country: string (nullable = true)
+ |-- elevation: double (nullable = true)
+ |-- latitude: double (nullable = true)
+ |-- location: struct (nullable = true)
+ |    |-- coordinates: array (nullable = true)
+ |    |    |-- element: double (containsNull = true)
+ |    |-- type: string (nullable = true)
+ |-- longitude: double (nullable = true)
+ |-- name: string (nullable = true)
+ |-- other_names: array (nullable = true)
+ |    |-- element: string (containsNull = true)
+ |-- population: long (nullable = true)
+ |-- province: string (nullable = true)
+ 
+ countries.printSchema()
+ 
+ root
+ |-- _id: struct (nullable = true)
+ |    |-- $oid: string (nullable = true)
+ |-- area: double (nullable = true)
+ |-- capital: string (nullable = true)
+ |-- code: string (nullable = true)
+ |-- gdp: double (nullable = true)
+ |-- government: string (nullable = true)
+ |-- independence: struct (nullable = true)
+ |    |-- $date: string (nullable = true)
+ |-- inflation: double (nullable = true)
+ |-- name: string (nullable = true)
+ |-- population: array (nullable = true)
+ |    |-- element: struct (containsNull = true)
+ |    |    |-- value: long (nullable = true)
+ |    |    |-- year: long (nullable = true)
+ |-- unemployment: double (nullable = true)
+ 
+ ------------------------------------------
+ 
+ cities
+.select($"name" as "city",$"country",$"population",
+        $"elevation"/1000 as "elev")
+.orderBy($"elevation".desc)
+.limit(7)
+.show()
+
++--------------+-------+----------+-----+
+|          city|country|population| elev|
++--------------+-------+----------+-----+
+|Cerro de Pasco|     PE|      null| 4.33|
+|         Lhasa|     CN|    106885|  4.2|
+|       El Alto|    BOL|    848840| 4.15|
+|        Potosí|    BOL|    189652|4.067|
+|          Puno|     PE|    120229| 3.83|
+|       Juliaca|     PE|    216716|3.825|
+|         Oruro|    BOL|    264683|3.735|
++--------------+-------+----------+-----+
+
+val topGDPCountries = countries.where($"gdp" > 1000000)
+val unempCountries = countries.where($"unemployment" < 6)
+val inflCountries = countries.where($"inflation" < 3)
+
+//intersecting dataframes
+
+val gdp_unemp = topGDPCountries.intersect(unempCountries)
+val gdp_unemp_infl = gdp_unemp.intersect(inflCountries)
+
+gdp_unemp_infl
+.select("name", "gdp", "unemployment", "government")
+.orderBy($"gdp".desc)
+.show()
+
++-----------+---------+------------+--------------------+
+|       name|      gdp|unemployment|          government|
++-----------+---------+------------+--------------------+
+|      China|9330000.0|         4.1|     Communist state|
+|      Japan|5007000.0|         4.1|a parliamentary g...|
+|    Germany|3593000.0|         5.3|    federal republic|
+|  Australia|1488000.0|         5.7|federal parliamen...|
+|South Korea|1198000.0|         3.2|            republic|
++-----------+---------+------------+--------------------+
+
+topGDPCountries.alias("gdpc")
+
+.join(cities, cities("country") === topGDPCountries("code"))
+.select(topGDPCountries("name"), 
+    expr("round(gdpc.gdp/1000000,2) as GDP"),
+    $"unemployment", $"government")
+.distinct
+.orderBy(topGDPCountries("gdp").desc)
+.show()
+
++--------------+-----+------------+--------------------+
+|          name|  GDP|unemployment|          government|
++--------------+-----+------------+--------------------+
+| United States|16.72|         7.3|constitution-base...|
+|         China| 9.33|         4.1|     Communist state|
+|         Japan| 5.01|         4.1|a parliamentary g...|
+|       Germany| 3.59|         5.3|    federal republic|
+|        France| 2.74|        10.2|            republic|
+|United Kingdom| 2.49|         7.2|constitutional mo...|
+|        Brazil| 2.19|         5.7|    federal republic|
+|        Russia| 2.11|         5.8|          federation|
+|         Italy| 2.07|        12.4|            republic|
+|        Canada| 1.83|         7.1|a parliamentary d...|
+|         India| 1.67|         8.8|    federal republic|
+|     Australia| 1.49|         5.7|federal parliamen...|
+|         Spain| 1.36|        26.3|parliamentary mon...|
+|        Mexico| 1.33|         4.9|    federal republic|
+|   South Korea|  1.2|         3.2|            republic|
++--------------+-----+------------+--------------------+
+
+topGDPCountries.alias("gdpc")
+.join(cities, cities("country") === topGDPCountries("code"))
+.select(topGDPCountries("name"), 
+    expr("round(gdpc.gdp/1000000,2) as GDP"),
+    $"unemployment", $"government")
+.distinct
+.orderBy(topGDPCountries("gdp"))
+.show()
+
++--------------+-----+------------+--------------------+
+|          name|  GDP|unemployment|          government|
++--------------+-----+------------+--------------------+
+|   South Korea|  1.2|         3.2|            republic|
+|        Mexico| 1.33|         4.9|    federal republic|
+|         Spain| 1.36|        26.3|parliamentary mon...|
+|     Australia| 1.49|         5.7|federal parliamen...|
+|         India| 1.67|         8.8|    federal republic|
+|        Canada| 1.83|         7.1|a parliamentary d...|
+|         Italy| 2.07|        12.4|            republic|
+|        Russia| 2.11|         5.8|          federation|
+|        Brazil| 2.19|         5.7|    federal republic|
+|United Kingdom| 2.49|         7.2|constitutional mo...|
+|        France| 2.74|        10.2|            republic|
+|       Germany| 3.59|         5.3|    federal republic|
+|         Japan| 5.01|         4.1|a parliamentary g...|
+|         China| 9.33|         4.1|     Communist state|
+| United States|16.72|         7.3|constitution-base...|
++--------------+-----+------------+--------------------+
+
+countries
+.join(cities, cities("country") === countries("code"))
+.where(cities("country") === "PL")
+.agg(sum(cities("population")).as("sum_pop"), 
+    count(cities("_id")).as("cities_number"))
+.select( "cities_number", "sum_pop")
+.show()
+
++-------------+--------+
+|cities_number| sum_pop|
++-------------+--------+
+|           41|11074917|
++-------------+--------+
+
+// rollup, joined tables, gdp
+countries
+.join(cities, countries("code") === cities("country"))
+.rollup(round(countries("gdp")/1000000) as "gdp_mln")
+.agg("country" -> "count")
+.orderBy(col("gdp_mln").desc)
+.limit(5)
+.show()
+
++-------+--------------+
+|gdp_mln|count(country)|
++-------+--------------+
+|   17.0|           250|
+|    9.0|           306|
+|    5.0|            70|
+|    4.0|            85|
+|    3.0|            41|
++-------+--------------+
+
+// rollup, joined tables, .where()
+
+countries
+.join(cities, countries("code") === cities("country"))
+.where(countries("inflation") < 3 && 
+        countries("unemployment") < 7)
+.rollup(round(countries("gdp")/1000000,2) as "gdp_mln")
+.agg("country" -> "count")
+.orderBy(col("gdp_mln").desc)
+.limit(5)
+.show()
+
++-------+--------------+
+|gdp_mln|count(country)|
++-------+--------------+
+|   9.33|           306|
+|   5.01|            70|
+|   3.59|            85|
+|   1.49|            15|
+|    1.2|            23|
++-------+--------------+
+
+// cube 
+countries
+.join(cities, countries("code") === cities("country"))
+.where(countries("gdp") > 1000000 && 
+        countries("unemployment") < 7)
+.cube(countries("inflation"))
+.agg("country" -> "count")
+.orderBy(col("inflation").desc)
+.limit(5)
+.show()
+
++---------+--------------+
+|inflation|count(country)|
++---------+--------------+
+|      6.8|           171|
+|      6.2|           210|
+|      4.0|            83|
+|      2.6|           306|
+|      2.4|            15|
++---------+--------------+
+
+// pivot
+
+countries
+.join(cities, 
+    countries("code") === cities("country"))
+
+.groupBy(round(cities("population")/1000000,2) as "population")
+.pivot("government", 
+    Seq("republic","parliamentary democracy","parliamentary republic"))
+.count()
+.filter(col("parliamentary democracy").isNotNull &&
+         col("republic").isNotNull && 
+         col("parliamentary republic").isNotNull)
+
+.orderBy(desc("population"))
+.limit(8)
+.show()
+
++----------+--------+-----------------------+----------------------+
+|population|republic|parliamentary democracy|parliamentary republic|
++----------+--------+-----------------------+----------------------+
+|      0.66|       3|                      1|                     1|
+|       0.4|       4|                      2|                     1|
+|      0.33|       4|                      3|                     1|
+|      0.23|      11|                      1|                     1|
+|      0.21|      14|                      4|                     1|
+|      0.17|      14|                      4|                     1|
+|      0.16|      19|                      2|                     2|
+|      0.14|      27|                      1|                     2|
++----------+--------+-----------------------+----------------------+
+
+
