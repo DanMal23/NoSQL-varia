@@ -1,0 +1,265 @@
+ 
+"20 years of Games", (ign.csv) analysis
+***************************************
+In Zeppelin notebook, Spark sql:
+
+import org.apache.spark.sql._
+
+val ign = spark.read.format("org.apache.spark.csv")
+.option("header", true)
+.option("inferSchema", true)
+.csv("~/Documents/BigData/datasets/ign.csv")
+.cache()
+ 
+ign.printSchema
+
+ root
+ |-- _c0: integer (nullable = true)
+ |-- score_phrase: string (nullable = true)
+ |-- title: string (nullable = true)
+ |-- url: string (nullable = true)
+ |-- platform: string (nullable = true)
+ |-- score: double (nullable = true)
+ |-- genre: string (nullable = true)
+ |-- editors_choice: string (nullable = true)
+ |-- release_year: integer (nullable = true)
+ |-- release_month: integer (nullable = true)
+ |-- release_day: integer (nullable = true)
+ ---------------------------------------------
+ 
+
+// .pivot() - aggregation, distinct features of a column 
+              are transported to another columns
+
+---------------------------------------- 
+ign
+.groupBy("score")
+.pivot("score_phrase",
+        Seq("Masterpiece","Amazing","Great","Good","Okay","Mediocre"))
+.count()
+.orderBy(desc("score"))
+.show()
+
++-----+-----------+-------+-----+----+----+--------+
+|score|Masterpiece|Amazing|Great|Good|Okay|Mediocre|
++-----+-----------+-------+-----+----+----+--------+
+| 10.0|         55|   null| null|null|null|    null|
+|  9.9|       null|      6| null|null|null|    null|
+|  9.8|       null|     19| null|null|null|    null|
+|  9.7|       null|     28| null|null|null|    null|
+|  9.6|       null|     47| null|null|null|    null|
+|  9.5|       null|    230| null|null|null|    null|
+|  9.4|       null|    110| null|null|null|    null|
+|  9.3|       null|    160| null|null|null|    null|
+|  9.2|       null|    146| null|null|null|    null|
+|  9.1|       null|    141| null|null|null|    null|
+|  9.0|       null|    917| null|null|null|    null|
+|  8.9|       null|   null|  212|null|null|    null|
+|  8.8|       null|   null|  320|null|null|    null|
+|  8.7|       null|   null|  225|null|null|    null|
+|  8.6|       null|   null|  181|null|null|    null|
+|  8.5|       null|   null| 1026|null|null|    null|
+|  8.4|       null|   null|  312|null|null|    null|
+|  8.3|       null|   null|  280|null|null|    null|
+|  8.2|       null|   null|  301|null|null|    null|
+|  8.1|       null|   null|  158|null|null|    null|
++-----+-----------+-------+-----+----+----+--------+
+only showing top 20 rows
+
+----------------------------------------------------
+
+ign
+.groupBy(ign("genre") as "genres of the games")
+.agg(round(avg("score"),1) as "avgScore")
+.orderBy(desc("avgScore"))
+.limit(10)
+.show()
+
++--------------------+--------+
+| genres of the games|avgScore|
++--------------------+--------+
+|Compilation, Comp...|     9.5|
+|            Hardware|     9.2|
+|         Puzzle, RPG|     9.1|
+|       Other, Action|     9.0|
+| Adventure, Episodic|     8.9|
+|Shooter, First-Pe...|     8.9|
+|    Music, Adventure|     8.8|
+|Platformer, Adven...|     8.8|
+|Adventure, Platfo...|     8.6|
+|          Music, RPG|     8.5|
+-------------------------------
+
+ign
+.groupBy("score")
+.pivot("genre",
+    Seq("RPG","Action","Adventure","Puzzle","Compilation","Shooter"))
+.count()
+.orderBy(desc("score"))
+.show()
+
++-----+----+------+---------+------+-----------+-------+
+|score| RPG|Action|Adventure|Puzzle|Compilation|Shooter|
++-----+----+------+---------+------+-----------+-------+
+| 10.0|   8|    12|        3|     5|       null|   null|
+|  9.9|   1|  null|     null|  null|       null|   null|
+|  9.8|null|     2|     null|  null|       null|      6|
+|  9.7|   2|     3|        1|  null|          1|      7|
+|  9.6|   7|     5|        2|  null|       null|      3|
+|  9.5|  28|    26|       21|     8|          2|     27|
+|  9.4|  12|     7|        5|  null|          1|     23|
+|  9.3|  20|    18|       22|     4|       null|     19|
+|  9.2|   6|    21|        7|     1|          3|     18|
+|  9.1|  11|    16|        4|     1|       null|     25|
+|  9.0|  88|   137|       47|    47|       null|     94|
+|  8.9|   7|    30|        5|     8|       null|     18|
+|  8.8|  23|    37|       10|     8|          1|     31|
+|  8.7|  17|    37|       14|     1|       null|     11|
+|  8.6|  16|    22|        8|     6|       null|     18|
+|  8.5|  77|   141|       66|    60|          2|    100|
+|  8.4|  21|    42|       19|    10|          1|     31|
+|  8.3|  15|    32|       15|     4|       null|     28|
+|  8.2|  19|    35|       19|     8|       null|     32|
+|  8.1|   7|    25|       13|     1|       null|     25|
++-----+----+------+---------+------+-----------+-------+
+only showing top 20 rows
+
+--------------------------------------------------------
+ign
+.groupBy("release_year")
+.pivot("genre",
+        Seq("RPG","Action","Adventure","Music","Puzzle","Shooter"))
+.count()
+.orderBy(desc("release_year"))
+.show()
+
++------------+---+------+---------+-----+------+-------+
+|release_year|RPG|Action|Adventure|Music|Puzzle|Shooter|
++------------+---+------+---------+-----+------+-------+
+|        2016| 28|    20|       38| null|     7|     33|
+|        2015| 48|    67|       64|    8|     9|     42|
+|        2014| 55|   104|       68|    4|    12|     56|
+|        2013| 48|   135|       84|    9|    12|     90|
+|        2012| 57|   134|       76|    8|    29|     79|
+|        2011| 78|   198|       82|   19|    51|    127|
+|        2010| 93|   300|       93|   49|    83|    140|
+|        2009| 67|   349|       98|   85|   105|    144|
+|        2008| 70|   353|      152|   98|   112|    167|
+|        2007| 71|   359|       74|   36|    82|    144|
+|        2006| 53|   264|       57|    8|    55|     83|
+|        2005| 38|   251|       37|   11|    31|    122|
+|        2004| 42|   191|       42|   11|    23|    103|
+|        2003| 39|   151|       32|    9|    25|     95|
+|        2002| 34|   170|       29|    5|    20|     76|
+|        2001| 44|   145|       43|    3|    13|     32|
+|        2000| 60|   256|       48|    6|    44|     27|
+|        1999| 34|   182|       27|    1|    44|     20|
+|        1998| 15|    79|       12| null|    10|     13|
+|        1997|  5|    53|        9|    1|     5|     11|
++------------+---+------+---------+-----+------+-------+
+only showing top 20 rows
+--------------------------------
+
+ign
+.groupBy(ign("platform") as "genres of the games")
+.agg(round(sum("score"),1) as "sumScores")
+.orderBy(desc("sumScores"))
+.show()
+
++--------------------+---------+
+| genres of the games|sumScores|
++--------------------+---------+
+|                  PC|  24086.6|
+|            Xbox 360|  11588.8|
+|       PlayStation 2|  11577.0|
+|       PlayStation 3|   9748.5|
+|                 Wii|   8604.8|
+|         Nintendo DS|   6569.9|
+|            Wireless|   6531.4|
+|         PlayStation|   6266.5|
+|              iPhone|   6136.5|
+|                Xbox|   5915.8|
+|PlayStation Portable|   4271.8|
+|    Game Boy Advance|   4128.4|
+|            GameCube|   3584.6|
+|      Game Boy Color|   2205.0|
+|       PlayStation 4|   2122.8|
+|           Dreamcast|   2107.9|
+|         Nintendo 64|   2106.9|
+|        Nintendo 3DS|   1646.8|
+|        Nintendo DSi|   1619.3|
+|            Xbox One|   1592.4|
++--------------------+---------+
+only showing top 20 rows
+--------------------------------
+
+ign
+.groupBy(ign("platform") as "genres of the games")
+.agg(round(count("score"),1) as "count")
+.orderBy(desc("count"))
+.show()
+
++--------------------+-----+
+| genres of the games|count|
++--------------------+-----+
+|                  PC| 3370|
+|       PlayStation 2| 1686|
+|            Xbox 360| 1631|
+|                 Wii| 1366|
+|       PlayStation 3| 1356|
+|         Nintendo DS| 1045|
+|         PlayStation|  952|
+|            Wireless|  910|
+|              iPhone|  842|
+|                Xbox|  821|
+|PlayStation Portable|  633|
+|    Game Boy Advance|  623|
+|            GameCube|  509|
+|      Game Boy Color|  356|
+|         Nintendo 64|  302|
+|           Dreamcast|  286|
+|       PlayStation 4|  277|
+|        Nintendo DSi|  254|
+|        Nintendo 3DS|  225|
+|            Xbox One|  208|
++--------------------+-----+
+only showing top 20 rows
+
+----------------------------
+ign
+.groupBy("score")
+.pivot("platform",
+        Seq("PC","Xbox 360","PlayStation 2","PlayStation 3"))
+.count()
+.orderBy(desc("score"))
+.show()
+
++-----+----+--------+-------------+-------------+
+|score|  PC|Xbox 360|PlayStation 2|PlayStation 3|
++-----+----+--------+-------------+-------------+
+| 10.0|   5|       5|         null|            9|
+|  9.9|null|    null|            1|         null|
+|  9.8|null|       3|            4|         null|
+|  9.7|   4|       3|            6|            1|
+|  9.6|   8|       6|            9|         null|
+|  9.5|  32|      29|           15|           26|
+|  9.4|  24|      14|           12|           18|
+|  9.3|  41|      16|           14|           18|
+|  9.2|  36|      13|           20|           11|
+|  9.1|  24|      12|           16|           12|
+|  9.0| 182|     100|           41|           95|
+|  8.9|  53|      20|           22|           14|
+|  8.8|  81|      23|           37|           18|
+|  8.7|  51|      23|           30|           20|
+|  8.6|  53|      11|           26|           16|
+|  8.5| 180|     127|           62|          121|
+|  8.4|  79|      26|           48|           14|
+|  8.3|  71|      25|           36|           17|
+|  8.2|  91|      25|           17|           20|
+|  8.1|  42|      13|           21|           11|
++-----+----+--------+-------------+-------------+
+only showing top 20 rows
+------------------------------------------------
+
+
+
