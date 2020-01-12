@@ -1,3 +1,8 @@
+/*** Zeppelin notebook:
+ $ cd Programs/zeppelin-0.8.2-bin-all/bin
+ $ ./zeppelin-daemon.sh start
+ Address: http://localhost:8090
+*/
  
 "20 years of Games", (ign.csv) analysis
 ***************************************
@@ -277,15 +282,15 @@ gameInfosDF
 +--------------------+------------+-----+
 |               title|release_year|score|
 +--------------------+------------+-----+
-|    Assassin's Creed|        2007|  7.7|
+|Assassin's Creed    |        2007|  7.7|
 |Assassin's Creed:...|        2008|  7.0|
 |Assassin's Creed:...|        2008|  7.8|
-| Assassin's Creed II|        2009|  9.2|
+|Assassin's Creed II |        2009|  9.2|
 |Assassin's Creed ...|        2009|  8.0|
 |Assassin's Creed:...|        2009|  6.9|
 |Assassin's Creed:...|        2009|  8.3|
 |Assassin's Creed ...|        2010|  7.4|
-| Assassin's Creed II|        2010|  8.9|
+|Assassin's Creed II |        2010|  8.9|
 |Assassin's Creed ...|        2010|  7.0|
 |Assassin's Creed:...|        2010|  8.0|
 |Assassin's Creed ...|        2010|  7.4|

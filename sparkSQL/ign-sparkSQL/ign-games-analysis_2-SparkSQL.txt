@@ -1,3 +1,8 @@
+/*** Zeppelin notebook:
+ $ cd Programs/zeppelin-0.8.2-bin-all/bin
+ $ ./zeppelin-daemon.sh start
+ Address: http://localhost:8090
+*/
  
 "20 years of Games", (ign.csv) analysis
 ***************************************

@@ -1,0 +1,106 @@
+
+/*** Zeppelin notebook:
+ $ cd Programs/zeppelin-0.8.2-bin-all/bin
+ $ ./zeppelin-daemon.sh start
+ Address: http://localhost:8090
+*/
+
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
+
+val cities = spark.read.json(
+    "/home/dona/Documents/BigData/Zeppelin-notebook/cities.json").cache()
+val countries = spark.read.json("/home/dona/Documents/BigData/Zeppelin-notebook/countries.json").cache()
+
+
+//17. Total population of coutries for 2010, or earlier if data for that year is missing
+
+val year_2010 = countries
+.select($"name".as("name_2010"), explode($"population").alias("population"))
+.select($"name_2010",$"population.year" as "year")
+.filter($"year" <= 2010)
+.groupBy($"name_2010")
+.agg(max("year").as("year_2010"))
+
+countries
+.select($"name", explode($"population").alias("population"))
+.select($"name", $"population.year" as "year", $"population.value" as "value")
+.join(year_2010, $"year" === $"year_2010" && $"name" === $"name_2010")
+.groupBy()
+.agg(sum("value"))
+.show()
+
++----------+
+|sum(value)|
++----------+
+|6493269902|
++----------+
+
+-------------------------------------------------------
+
+//18. 3 most populated countries in 2010, or earlier if data is missing
+
+val year_2010 = countries
+.select($"name".as("name_2010"), explode($"population").alias("population"))
+.select($"name_2010", $"population.year" as "year",
+                        $"population.value" as "value")
+.filter($"year" <= 2010)
+.groupBy($"name_2010")
+.agg(max("year").as("year_2010")) //max
+
+
+val c3 = countries
+.select($"name",explode($"population").alias("population"))
+.select($"name", $"population.year" ,
+                    $"population.value" )
+.join(year_2010, $"year" === $"year_2010" && $"name" === $"name_2010")
+
+c3.select($"name_2010")
+.orderBy(desc("value")).limit(3).show()
+
+
++-------------+
+|    name_2010|
++-------------+
+|        China|
+|        India|
+|United States|
++-------------+
+
+-------------------------------------------------
+
+//19. 3 countries with highest population for 
+         cities > 50000 in 2010
+
+val cc_2010 = countries
+.join(cities, countries("code") === cities("country"))
+.select(explode(countries("population")).alias("countryPop"),
+        $"countryPop.year" as "countryPopYear", 
+        $"countryPop.value" as "countryPopValue",
+        countries("name") as "countryName",
+        cities("name") as "cityName",
+        cities("population") as "cityPop")
+.select( $"countryName",$"cityName",$"cityPop",$"countryPopYear")
+.filter($"countryPopYear" <= 2010 && $"cityPop" > 50000)
+.groupBy($"countryName")
+.agg(max("countryPopYear").as("year_2010"))
+
+
+val cc =  countries
+.select($"name",explode($"population").alias("population"))
+.select($"name", $"population.year" ,
+                    $"population.value" )
+.join(cc_2010, $"year" === $"year_2010" && $"name" === $"countryName")
+
+cc.select($"countryName")
+.orderBy(desc("value"))
+.limit(3)
+.show()
+
++-------------+
+|  countryName|
++-------------+
+|        China|
+|        India|
+|United States|
++-------------+
