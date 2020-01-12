@@ -1,3 +1,9 @@
+
+/*** Zeppelin notebook:
+ $ cd Programs/zeppelin-0.8.2-bin-all/bin
+ $ ./zeppelin-daemon.sh start
+ Address: http://localhost:8090
+*/
  
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -142,10 +148,7 @@ countries
 +----------+----------+----------+
 ==============================================
 
-//17.//
-// most populated countries in 2010 or earlier 
-// if data is missing for that year
-
+// 6 most populated countries btw 2001 and 2010, year, value 
 countries
 .select($"name", explode($"population").alias("population"))
 .select($"name",
@@ -170,7 +173,7 @@ countries
 
 ------------------------------------------
 
-//18.// 3 most populated countries in 2010
+// 3 most populated countries btw. 1996 and 2010
 
 countries
 .select($"name", explode($"population").alias("population"))
@@ -217,7 +220,7 @@ root
  |-- cityPop: long (nullable = true)
  ----------------------------------------------
  
- // 6 most populated cities in 2010
+ // 6 most populated cities in 2010, city pop > 50 000
  
  cities
 .join(countries, countries("code") === cities("country"))
@@ -243,8 +246,8 @@ root
 |2010|     1339724852|      China|  Tianjin|11090314|
 +----+---------------+-----------+---------+--------+
 
-//19.// 5 countries with most populated cities in 2010
-    // city population > 50000
+// 5 countries with most populated cities 
+// city population > 50000
 
 cities
 .join(countries, countries("code") === cities("country"))
