@@ -251,7 +251,7 @@ cities
 .select(explode(countries("population")).alias("countryPop"),
         $"countryPop.year" as "year", 
         $"countryPop.value" as "countryPopValue",
-        countriesDF("name") as "countryName",
+        countries("name") as "countryName",
         cities("name") as "city",
         cities("population") as "cityPop")
 .select(
