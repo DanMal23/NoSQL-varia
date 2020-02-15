@@ -1,0 +1,227 @@
+/*
+Pig Latin is a high-level procedural langauge.
+Its scripts are converted into MapReduce jobs*/
+
+/*some pig latin scripts in:
+Apache Pig version 0.17.0*/
+
+$ pig -x local
+
+grunt> LG = LOAD 'lgs.txt' USING PigStorage(',') AS
+(id:int, name:chararray, version:double, release_date:chararray);
+
+grunt> DUMP LG;
+
+(1,Python,2.0,2000-10-16)
+(2,Python,3.0,2008-12-03)
+(3,Python,3.8,2019-12-18)
+(4,Python,3.9,2020-01-24)
+(5,JDK,1.0,1996-01-23)
+(6,JDK,1.1,1996-02-19)
+(7,J2SE,1.2,1998-12-08)
+(8,J2SE,1.3,2000-05-08)
+(9,J2SE,1.4,2002-02-06)
+(10,J2SE,5.0,2004-09-30)
+(11,JavaSE,6.0,2006-12-11)
+(12,JavaSE,7.0,2011-07-28)
+(13,JavaSE,8.0,2014-03-18)
+(14,JavaSE,9.0,2017-09-21)
+(15,JavaSE,10.0,2018-03-20)
+(16,JavaSE,11.0,2018-09-25)
+(17,JavaSE,12.0,2019-03-19)
+(18,JavaSE,13.0,2019-09-17)
+----------------------------------
+grunt> LGs = FOREACH LG GENERATE id, name, version, ToDate(release_date, 'YYYY-MM-dd') AS release_date;
+grunt> dump LGs;
+// datetime result for release_date
+
+(1,Python,2.0,2000-10-16T00:00:00.000+02:00)
+(2,Python,3.0,2008-12-03T00:00:00.000+01:00)
+...
+---------------------------------
+grunt> LGname = FOREACH LGs GENERATE name;
+grunt> DUMP LGname;
+//
+(Python)
+(Python)
+...
+grunt> LGgr = GROUP LG BY name;
+grunt> dump LGgr;
+//
+(JDK,{(6,JDK,1.1,1996-02-19),(5,JDK,1.0,1996-01-23)})
+... 
+(1,Python,2.0,2000-10-16)})
+...
+--------------------------------
+grunt> LGmax = FOREACH LGgr GENERATE LG.name, MAX(LG.version);
+grunt> DUMP LGmax;
+//
+({(JDK),(JDK)},1.1)
+({(J2SE),(J2SE),(J2SE),(J2SE)},5.0)
+({(JavaSE),(JavaSE),(JavaSE),(JavaSE),(JavaSE),(JavaSE),(JavaSE),(JavaSE)},13.0)
+({(Python),(Python),(Python),(Python)},3.9)
+------------------------------------------------
+grunt> LGdist1 = DISTINCT(FOREACH LGgr GENERATE $0);
+grunt> dump LGdist1;
+//
+(JDK)
+(J2SE)
+(JavaSE)
+(Python)
+-----------------------------
+grunt> LGdist2 = DISTINCT(FOREACH LGs GENERATE name);
+grunt> DUMP LGdist2;
+//
+(JDK)
+(J2SE)
+(JavaSE)
+(Python)
+----------------------------
+grunt> LGord = ORDER LG BY release_date DESC;
+grunt> LGord;
+//
+(4,Python,3.9,2020-01-24)
+(3,Python,3.8,2019-12-18)
+(18,JavaSE,13.0,2019-09-17)
+...
+------------------------------
+grunt> Lordlim = LIMIT LGord 6;
+grunt> DUMP Lordlim;
+//
+(4,Python,3.9,2020-01-24)
+(3,Python,3.8,2019-12-18)
+(18,JavaSE,13.0,2019-09-17)
+(17,JavaSE,12.0,2019-03-19)
+(16,JavaSE,11.0,2018-09-25)
+(15,JavaSE,10.0,2018-03-20)
+------------------------------
+grunt> LGlim = LIMIT (ORDER LG BY release_date) 4;
+grunt> dump LGlim;
+//
+(5,JDK,1.0,1996-01-23)
+(6,JDK,1.1,1996-02-19)
+(7,J2SE,1.2,1998-12-08)
+(8,J2SE,1.3,2000-05-08)
+----------------------------
+grunt> LGf1 = FILTER LG BY name == 'Python';
+grunt> dump LGf1;
+//
+(1,Python,2.0,2000-10-16)
+(2,Python,3.0,2008-12-03)
+(3,Python,3.8,2019-12-18)
+(4,Python,3.9,2020-01-24)
+------------------------------
+grunt> LGm = FOREACH LGgr GENERATE group, MAX(LG.version);
+grunt> dump LGm;
+//
+(JDK,1.1)
+(J2SE,5.0)
+(JavaSE,13.0)
+(Python,3.9)
+--------------------------
+
+grunt> LGmin = FOREACH LGgr GENERATE group, MIN(LG.release_date);
+grunt> LGmin;
+//
+(JDK,1996-01-23)
+(J2SE,1998-12-08)
+(JavaSE,2006-12-11)
+(Python,2000-10-16)
+-------------------------
+grunt> LGmin = FOREACH LGgr GENERATE group, MIN(LG.release_date),MIN(LG.version);
+grunt> dump LGmin;
+//
+(JDK,1996-01-23,1.0)
+(J2SE,1998-12-08,1.2)
+(JavaSE,2006-12-11,6.0)
+(Python,2000-10-16,2.0)
+----------------------
+grunt> LGgr = GROUP LG BY name;
+grunt> dump LGgr;
+//
+(JDK,{(6,JDK,1.1,1996-02-19),(5,JDK,1.0,1996-01-23)})...
+----------------------
+grunt> LGgrm = FOREACH LGorgr GENERATE group, MIN(LGorder.release_date),MIN(LGorder.version);
+grunt> LGgrm;
+(JDK,1996-01-23,1.0)
+(J2SE,1998-12-08,1.2)
+(JavaSE,2006-12-11,6.0)
+(Python,2000-10-16,2.0)
+-------------------------------
+grunt> R = RANK LGgrm;
+grunt> dump LGgrm;
+//
+(1,JDK,1996-01-23,1.0)
+(2,J2SE,1998-12-08,1.2)
+(3,JavaSE,2006-12-11,6.0)
+(4,Python,2000-10-16,2.0)
+
+grunt> describe LGgrm;
+LGgrm: {group: chararray,chararray,double}
+------------------------------
+
+grunt> R2 = RANK LG BY name DESC, release_date ASC;
+grunt> dump R2;
+//
+(1,1,Python,2.0,2000-10-16)
+(2,2,Python,3.0,2008-12-03)
+(3,3,Python,3.8,2019-12-18)
+(4,4,Python,3.9,2020-01-24)
+(5,11,JavaSE,6.0,2006-12-11)
+(6,12,JavaSE,7.0,2011-07-28)
+...
+
+grunt> R3 = RANK LG BY name ASC, release_date DESC;
+grunt> dump R3;
+//
+(1,10,J2SE,5.0,2004-09-30)
+(2,9,J2SE,1.4,2002-02-06)
+(3,8,J2SE,1.3,2000-05-08)
+(4,7,J2SE,1.2,1998-12-08)
+(5,6,JDK,1.1,1996-02-19)
+(6,5,JDK,1.0,1996-01-23)
+...
+
+grunt> LGdist = DISTINCT(FOREACH LGgr GENERATE $0, $1);
+// 
+(JDK,{(6,JDK,1.1,1996-02-19),(5,JDK,1.0,1996-01-23)}) ...
+grunt> describe LGdist;
+LGdist: {group: chararray,LG: {(id: int,name: chararray,version: double,release_date: chararray)}}
+
+grunt> FL1 = FOREACH LGgr GENERATE FLATTEN(group);
+//or
+grunt> FL1 = FOREACH LGgr GENERATE FLATTEN($0);
+grunt> FL1;
+//
+(JDK)
+(J2SE)
+(JavaSE)
+(Python)
+
+grunt> describe FL1;
+FL1: {group: chararray}
+--------------------------
+grunt> FL2 = FOREACH LGgr GENERATE FLATTEN(group), COUNT(LG) as count;
+//or
+grunt> FL2 = FOREACH LGgr GENERATE FLATTEN($0), COUNT($1) as count;
+grunt> FL2;
+//
+(JDK,2)
+(J2SE,4)
+(JavaSE,8)
+(Python,4)
+------------------------
+grunt> FL3 = FOREACH LGgr GENERATE $0, FLATTEN($1);
+grunt> FL3;
+//
+(JDK,6,JDK,1.1,1996-02-19)
+(JDK,5,JDK,1.0,1996-01-23)
+(J2SE,10,J2SE,5.0,2004-09-30)
+...
+grunt> describe FL3;
+FL3: {group: chararray,LG::id: int,
+      LG::name: chararray,LG::version: double,LG::release_date: chararray}
+...
+// $0 - group
+// $1 - LG
+...
