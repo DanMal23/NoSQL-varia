@@ -1,0 +1,106 @@
+ 
+~/Programs/apache-zeppelin/src/zeppelin-0.8.1-bin-all
+bin/zeppelin-daemon.sh start
+
+http://localhost:8080/#/
+
+tutorial:
+http://blink.flink-china.org/ops/zeppelin.html
+
+# benv runs a batch sql - batch execution environment
+# senv runs a stream sql - stream execution environment
+
+------------
+%flink
+val batchedNames = benv.fromElements("Apache Flink", "Apache Spark", "Apache Hadoop", "Apache Impala", "Apache Kudu", "Apache Mahout", "Apache Mesos")
+batchedNames.flatMap(line => line.split("\\s"))
+  .map(w => (w, 1))
+  .groupBy(0)
+  .sum(1)
+  .print()
+  
+//
+names: org.apache.flink.api.scala.DataSet[String] = org.apache.flink.api.scala.DataSet@6381e730
+(Apache,7)
+(Flink,1)
+(Hadoop,1)
+(Impala,1)
+(Kudu,1)
+(Mahout,1)
+(Mesos,1)
+(Spark,1)
+
+-------------
+%flink
+val StreamedNames = senv.fromElements("Apache Flink", "Apache Spark", "Apache Hadoop", "Apache Impala", "Apache Kudu", "Apache Mahout", "Apache Mesos")
+StreamedNames.flatMap(line => line.split("\\s"))
+.map(w => (w, 1))
+.keyBy(0)
+.sum(1)
+.print()
+senv.execute()
+
+//
+StreamedNames: org.apache.flink.streaming.api.scala.DataStream[String] = org.apache.flink.streaming.api.scala.DataStream@75ec673f
+res25: org.apache.flink.streaming.api.datastream.DataStreamSink[(String, Int)] = org.apache.flink.streaming.api.datastream.DataStreamSink@12b5b7c7
+(Apache,1)
+(Flink,1)
+(Apache,2)
+(Spark,1)
+(Apache,3)
+(Hadoop,1)
+(Apache,4)
+(Impala,1)
+(Apache,5)
+(Kudu,1)
+(Apache,6)
+(Mahout,1)
+(Apache,7)
+(Mesos,1)
+
+----------------
+
+// data:
+// https://www.kaggle.com/jainshukal/netflix-stock-price
+
+%flink
+
+import org.apache.flink.api.common.operators.Order
+
+case class Nflx(date: String, open: Double, high: Double, low: Double, close: Double, adjclose: Double, volume: Double)
+
+val nflx = benv.readCsvFile[Nflx]("~/Documents/BigData/datasets/netflix/nflx.csv", ignoreFirstLine = true)
+
+----
+%flink
+
+val min_on_stock_opening = nflx
+.sortPartition("open", Order.ASCENDING)
+.collect
+.head
+
+// output:
+min_on_stock_opening: Nflx = Nflx(2016-02-08,80.57,84.699997,79.949997,83.32,83.32,2.50356E7)
+----
+%flink
+
+val max_on_stock_opening = nflx
+.sortPartition("close", Order.DESCENDING)
+.collect
+.head
+
+//
+max_on_stock_opening: Nflx = Nflx(2018-07-09,415.950012,419.119995,411.100006,418.970001,418.970001,1.11275E7)
+----
+%flink
+
+val nflx_top_on_close = nflx
+.sortPartition("close", Order.DESCENDING)
+.collect
+
+//
+nflx_top_on_close: Seq[Nflx] = Buffer(Nflx(2018-07-09,415.950012,419.119995,411.100006,418.970001,418.970001,1.11275E7), Nflx(2018-07-11,411.339996,419.769989,410.600006,418.649994,418.649994,9713900.0), Nflx(2018-06-20,415.149994,419.470001,409.600006,416.76001,416.76001,1.64946E7), Nflx(2018-07-10,417.23999,419.440002,413.079987,415.630005,415.630005,9382900.0), Nflx(2018-06-21,421.380005,423.209991,406.369995,415.440002,415.440002,1.83899E7), ...
+
+
+
+
