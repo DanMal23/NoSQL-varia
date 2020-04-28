@@ -1,0 +1,185 @@
+// HBase on Docker
+
+$ sudo docker pull cloudera/quickstart:latest
+
+$ sudo docker run --hostname=quickstart.cloudera --privileged=true -t -i -p 8888:8888 -p 80:80 cloudera/quickstart /usr/bin/docker-quickstart
+
+[root@quickstart /]# hbase shell
+
+hbase(main):001:0>
+
+// Hue services in a browser :
+localhost:8888   
+
+--------
+// creating 'dbmsoftware' table with column families: 'name', 'type', 'release'
+--------
+// creating rows: 'HBase', 'Cassandra', 'MongoDB', 'Redis'
+--------
+> create 'dbmsoftware', 'name', 'type', 'release'
+
+> put 'dbmsoftware', 'HBase', 'name:fullname', 'Apache HBase', 202004281338
+> put 'dbmsoftware', 'HBase', 'type:dbtype', 'nosql', 202004281339
+> put 'dbmsoftware', 'HBase', 'type:nosqltype', 'wide column', 202004281340
+> put 'dbmsoftware', 'HBase', 'release:latestdate', '2020/03/11', 202004281341
+> put 'dbmsoftware', 'HBase', 'release:latestversion', '2.2.4',202004281342
+> put 'dbmsoftware', 'HBase', 'release:developer', 'Apache Software Foundation',202004281342
+
+> put 'dbmsoftware', 'Cassandra', 'name:fullname', 'Apache Cassandra',202004281350
+> put 'dbmsoftware', 'Cassandra', 'type:dbtype', 'nosql', 202004281351
+> put 'dbmsoftware', 'Cassandra', 'type:nosqltype', 'wide column', 202004281352
+> put 'dbmsoftware', 'Cassandra', 'release:latestdate', '2020/02/14', 202004281353
+> put 'dbmsoftware', 'Cassandra', 'release:latestversion', '3.11.6',202004281354
+> put 'dbmsoftware', 'Cassandra', 'release:initialdate', '2008/07', 202004281355
+> put 'dbmsoftware', 'Cassandra', 'release:developer', 'Apache Software Foundation',202004281356
+
+> put 'dbmsoftware', 'MongoDB', 'name:fullname', 'MongoDB',202004281430
+> put 'dbmsoftware', 'MongoDB', 'type:dbtype', 'nosql', 202004281432
+> put 'dbmsoftware', 'MongoDB', 'type:nosqltype', 'document-oriented', 202004281433
+> put 'dbmsoftware', 'MongoDB', 'release:latestdate', '2020/04/21', 202004281434
+> put 'dbmsoftware', 'MongoDB', 'release:latestversion', '4.2.6',202004281435
+> put 'dbmsoftware', 'MongoDB', 'release:initialdate', '2009/02/11', 202004281436
+> put 'dbmsoftware', 'MongoDB', 'release:developer', 'MongoDB Inc.',202004281437
+
+> put 'dbmsoftware', 'Redis', 'name:fullname', 'Remote Dictionary Server',202004281508
+> put 'dbmsoftware', 'Redis', 'type:dbtype', 'nosql', 202004281509
+> put 'dbmsoftware', 'Redis', 'type:nosqltype', 'key-value', 202004281510
+> put 'dbmsoftware', 'Redis', 'release:latestdate', '2020/04/17', 202004281511
+> put 'dbmsoftware', 'Redis', 'release:latestversion', '5.0.9',202004281512
+> put 'dbmsoftware', 'Redis', 'release:initialdate', '2009/05/10', 202004281513
+> put 'dbmsoftware', 'Redis', 'release:developer', 'Redis Labs',202004281514
+
+
+> get 'dbmsoftware', 'HBase', 'release'
+// output:
+COLUMN                    CELL                                                                    
+ release:developer        timestamp=202004281342, value=Apache Software Foundation                
+ release:latestdate       timestamp=202004281341, value=2020/03/11                                
+ release:latestversion    timestamp=202004281342, value=2.2.4
+ 
+ 
+> get 'dbmsoftware', 'HBase', 'release:developer'
+// output:
+COLUMN                    CELL                                                                    
+ release:developer        timestamp=202004281342, value=Apache Software Foundation 
+ 
+ 
+> put 'dbmsoftware', 'Redis', 'name:fullname', 'Redis',202004281600
+> alter 'dbmsoftware', NAME => 'name', VERSIONS => 2
+> get 'dbmsoftware', 'Redis', {COLUMN  => 'name:fullname', VERSIONS => 2}
+// output:
+COLUMN                           CELL                                                                                          
+ name:fullname                   timestamp=202004281600, value=Redis                                                           
+ name:fullname                   timestamp=202004281508, value=Remote Dictionary Server
+
+
+==========================================
+> get 'dbmsoftware', 'Redis'
+// output:
+COLUMN                 CELL                                                      
+ name:fullname         timestamp=202004281508, value=Redis    
+ release:developer     timestamp=202004281514, value=Redis Labs                  
+ release:initialdate   timestamp=202004281513, value=2009/05/10                  
+ release:latestdate    timestamp=202004281511, value=2020/04/17                  
+ release:latestversion timestamp=202004281512, value=5.0.9                                                                                                     
+ type:dbtype           timestamp=202004281509, value=nosql                       
+ type:nosqltype        timestamp=202004281510, value=key-value                   
+
+
+> get 'dbmsoftware', 'Redis', 'release'
+// output:
+COLUMN                 CELL                                                      
+ release:developer     timestamp=202004281514, value=Redis Labs                  
+ release:initialdate   timestamp=202004281513, value=2009/05/10                  
+ release:latestdate    timestamp=202004281511, value=2020/04/17                  
+ release:latestversion timestamp=202004281512, value=5.0.9 
+ 
+ ---------------------------------------------------
+ //retrieving the newest version:
+ 
+> get 'dbmsoftware', 'Redis', 'name:fullname'
+// output:
+COLUMN                    CELL                                                                    
+ name:fullname            timestamp=202004281600, value=Redis 
+ 
+// setting 3 versions to be retrieved, 2 exist:
+ 
+> get 'dbmsoftware', 'Redis', {COLUMN => 'name', VERSIONS => 3}
+// output:
+COLUMN                    CELL                                                                    
+ name:fullname            timestamp=202004281600, value=Redis                                     
+ name:fullname            timestamp=202004281508, value=Remote Dictionary Server
+ 
+-------------------------------
+ // table description:
+ 
+> desc 'dbmsoftware'
+// output:
+
+Table dbmsoftware is ENABLED                                                                      
+dbmsoftware                                                                                       
+COLUMN FAMILIES DESCRIPTION                                                                       
+{NAME => 'name', DATA_BLOCK_ENCODING => 'NONE', BLOOMFILTER => 'ROW', REPLICATION_SCOPE => '0', VE
+RSIONS => '2', COMPRESSION => 'NONE', MIN_VERSIONS => '0', TTL => 'FOREVER', KEEP_DELETED_CELLS =>
+ 'FALSE', BLOCKSIZE => '65536', IN_MEMORY => 'false', BLOCKCACHE => 'true'}                       
+{NAME => 'release', DATA_BLOCK_ENCODING => 'NONE', BLOOMFILTER => 'ROW', REPLICATION_SCOPE => '0',
+ VERSIONS => '1', COMPRESSION => 'NONE', MIN_VERSIONS => '0', TTL => 'FOREVER', KEEP_DELETED_CELLS
+ => 'FALSE', BLOCKSIZE => '65536', IN_MEMORY => 'false', BLOCKCACHE => 'true'}                    
+{NAME => 'type', DATA_BLOCK_ENCODING => 'NONE', BLOOMFILTER => 'ROW', REPLICATION_SCOPE => '0', VE
+RSIONS => '1', COMPRESSION => 'NONE', MIN_VERSIONS => '0', TTL => 'FOREVER', KEEP_DELETED_CELLS =>
+ 'FALSE', BLOCKSIZE => '65536', IN_MEMORY => 'false', BLOCKCACHE => 'true'}                       
+3 row(s) in 0.0530 seconds
+
+> is_enabled 'dbmsoftware'
+true 
+
+> whoami
+root (auth:SIMPLE)
+    groups: root
+    
+// listing tables:
+> list
+TABLE
+dbmsoftware
+
+// counting rows:
+> count 'dbmsoftware'
+4 row(s) in 0.0600 seconds
+
+// reading the table's content:
+
+> scan 'dbmsoftware'
+ROW                       COLUMN+CELL                                                             
+ Cassandra                column=name:fullname, timestamp=202004281350, value=Apache Cassandra    
+ Cassandra                column=release:developer, timestamp=202004281356, value=Apache Software 
+                          Foundation                                                              
+ Cassandra                column=release:initialdate, timestamp=202004281355, value=2008/07       
+ Cassandra                column=release:latestdate, timestamp=202004281353, value=2020/02/14     
+ Cassandra                column=release:latestversion, timestamp=202004281354, value=3.11.6      
+ Cassandra                column=type:dbtype, timestamp=202004281351, value=nosql                 
+ Cassandra                column=type:nosqltype, timestamp=202004281352, value=wide column        
+ HBase                    column=name:fullname, timestamp=202004281338, value=Apache HBase        
+ HBase                    column=release:developer, timestamp=202004281342, value=Apache Software 
+                          Foundation                                                              
+ HBase                    column=release:latestdate, timestamp=202004281341, value=2020/03/11     
+ HBase                    column=release:latestversion, timestamp=202004281342, value=2.2.4       
+ HBase                    column=type:dbtype, timestamp=202004281339, value=nosql                 
+ HBase                    column=type:nosqltype, timestamp=202004281340, value=wide column        
+ MongoDB                  column=name:fullname, timestamp=202004281430, value=MongoDB             
+ MongoDB                  column=release:developer, timestamp=202004281437, value=MongoDB Inc.    
+ MongoDB                  column=release:initialdate, timestamp=202004281436, value=2009/02/11    
+ MongoDB                  column=release:latestdate, timestamp=202004281434, value=2020/04/21     
+ MongoDB                  column=release:latestversion, timestamp=202004281435, value=4.2.6       
+ MongoDB                  column=type:dbtype, timestamp=202004281432, value=nosql                 
+ MongoDB                  column=type:nosqltype, timestamp=202004281433, value=document-oriented  
+ Redis                    column=name:fullname, timestamp=202004281600, value=Redis               
+ Redis                    column=release:developer, timestamp=202004281514, value=Redis Labs      
+ Redis                    column=release:initialdate, timestamp=202004281513, value=2009/05/10    
+ Redis                    column=release:latestdate, timestamp=202004281511, value=2020/04/17     
+ Redis                    column=release:latestversion, timestamp=202004281512, value=5.0.9       
+ Redis                    column=type:dbtype, timestamp=202004281509, value=nosql                 
+ Redis                    column=type:nosqltype, timestamp=202004281510, value=key-value          
+4 row(s) in 0.0390 seconds
+
+ 
+ 
