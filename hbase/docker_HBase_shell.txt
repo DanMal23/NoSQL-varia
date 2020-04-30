@@ -11,6 +11,9 @@ hbase(main):001:0>
 // Hue services in a browser :
 localhost:8888   
 
+// login: cloudera
+// passwd: cloudera
+
 --------
 // creating 'dbmsoftware' table with column families: 'name', 'type', 'release'
 --------
