@@ -1,0 +1,553 @@
+
+-- in docker: shows containers IDs, image names ...
+sudo docker ps -a
+
+--  starting cassandra container:
+sudo docker start ef9d3a404f68
+
+-- running cass shella:
+sudo docker exec -it cass cqlsh
+
+-- stopping the container:
+sudo docker stop ef9d3a404f68
+
+-- data source: https://db-engines.com/en/ranking
+---------------------------------------------------------------------
+
+> CREATE KEYSPACE db_engines WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+DESCRIBE keyspaces;
+DESCRIBE keyspace db_engines;
+USE db_engines;
+
+> use db_engines;
+
+cqlsh:db_engines> CREATE TABLE dbrank
+(
+  model TEXT,
+  year INT,
+  name TEXT,
+  score INT,
+  PRIMARY KEY (model, year, name)
+);
+
+cqlsh:db_engines> desc tables;   -- OR describe tables;
+
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 1979, 'Oracle', 1368);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 1996, 'PostgreSQL', 542);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 2000, 'SQLite', 125);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 1995, 'MySQL', 1256);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 2009, 'MariaDB', 92);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Document', 2009, 'MongoDB', 448);
+INSERT INTO dbrank (model, year, name, score) VALUES ('WideColumn', 2008, 'Cassandra', 119);
+INSERT INTO dbrank (model, year, name, score) VALUES ('KeyValue', 2009, 'Redis', 153);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 1979, 'Teradata', 76);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 2010, 'SAP HANA', 54);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 2010, 'Hive', 69);
+INSERT INTO dbrank (model, year, name, score) VALUES ('WideColumn', 2008, 'HBase', 48);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 2014, 'Snowflake', 6);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Relational', 2010, 'Google BigQuery', 34);
+INSERT INTO dbrank (model, year, name, score) VALUES ('Document', 2005, 'CouchDB', 17);
+INSERT INTO dbrank (model, year, name, score) VALUES ('WideColumn', 2012, 'DynamoDB', 68);
+
+cqlsh:db_engines> select * from dbrank where model='Relational' and year=2010;
+
+ model       | year | name                   | score
+---------------+-------+------------------------+-------
+ Relational | 2010 | Google BigQuery |    34
+ Relational | 2010 |            Hive          |    69
+ Relational | 2010 |        SAP HANA     |    54
+ 
+> select max(score) from dbrank;
+ system.max(score)
+-------------------
+              1368
+              
+> select * from dbrank where score > 1000 ALLOW FILTERING;
+
+ model       | year  | name   | score
+---------------+-------+-----------+-------
+ Relational | 1979 |  Oracle |  1368
+ Relational | 1995 |  MySQL |  1256
+
+cqlsh:db_engines> SELECT * FROM dbrank WHERE model='WideColumn' ORDER BY year, name;
+
+ model           |  year |      name      | score
+-------------------+-------+-----------------+-------
+ WideColumn | 2008 |   Cassandra |   119
+ WideColumn | 2008 |          HBase |    48
+ WideColumn | 2012 |  DynamoDB |    68
+
+cqlsh:db_engines> SELECT * FROM dbrank WHERE model='WideColumn' ORDER BY year desc, name desc;
+
+ model           | year  |      name      | score
+-------------------+-------+-----------------+-------
+ WideColumn | 2012 |  DynamoDB |    68
+ WideColumn | 2008 |          HBase |    48
+ WideColumn | 2008 |    Cassandra |   119
+
+-- CLUSTERING KEY is cols: year & name - this key sorts the data
+-- model col  PARTITIONING KEY - always must be given
+--  without it Cass doesn't know which node to search for the data
+-- INSERTs are UPDATEs   
+
+> INSERT INTO dbrank (model, year, name, score) 
+    VALUES ('WideColumn', 2008, 'Cassandra', 120);
+-- key is valid,  INSERT is UPDATE
+
+WideColumn | 2008 | Cassandra |   120  
+
+-- if key is not valid and a new record will be created - it's an INSERT operation
+-- key is unique, not yet present in the table (part of the key may exist)
+
+> INSERT INTO dbrank (model, year, name, score) 
+    VALUES ('WideColumn', 2008, 'SomeOtherDB', 0);
+    
+ WideColumn | 2008 | Otherdb ...  byloby nowym recordem - to  UPSERT
+
+-------------------------------
+UPDATE dbrank SET score=120 WHERE model='WideColumn' AND year=2008 AND name='Cassandra';
+
+cqlsh:db_engines> SELECT * FROM dbrank WHERE model='WideColumn' ORDER BY year desc, name desc;
+
+     model      |   year |      name      | score
+-------------------+-------+-----------------+-------
+ WideColumn | 2012 |  DynamoDB |    68
+ WideColumn | 2008 |          HBase |    48
+ WideColumn | 2008 |    Cassandra |   120  -- changes value of the record
+ 
+ -- UPDATE for non existing records, just part of the key
+-- setting score values:
+UPDATE dbrank SET score=68 WHERE model='MultiModel' AND year=2012 AND name='DynamoDB';
+UPDATE dbrank SET score=76 WHERE model='MultiModel' AND year=1979 AND name='Teradata';
+UPDATE dbrank SET score=2 WHERE model='MultiModel' AND year=2012 AND name='Druid';
+UPDATE dbrank SET score=2 WHERE model='Relational' AND year=2012 AND name='Druid';
+UPDATE dbrank SET score=68 WHERE model='KeyValue' AND year=2012 AND name='DynamoDB';
+UPDATE dbrank SET score=68 WHERE model='Document' AND year=2012 AND name='DynamoDB';
+UPDATE dbrank SET score=153 WHERE model='Document' AND year=2009 AND name='Redis';
+UPDATE dbrank SET score=1368 WHERE model='Document' AND year=1979 AND name='Oracle';
+
+-- no errors, adds new records (idempotency - operations performed many times)
+-- idempotency,  e.g. 1*1=1
+-- UPDATEs  are UPSERTs , with different syntax
+
+-- removing data is creating new tombstones in db:
+DELETE from dbrank WHERE model='MultiModel' AND year=2012 AND name='DynamoDB';
+
+-- for data to be removed, all nodes must exchange tombstones
+
+-- SET
+-- part of  PRIMARY KEY cannot be in SET part
+-- no UPDATE on elems of the PRIMARY KEY !!! eg:
+
+UPDATE dbrank SET year=1000 WHERE model='MultiModel' AND year=2012 AND name='DynamoDB';
+  -- Error... [Invalid query] message="PRIMARY KEY part year found in SET part" 
+-- bo fragm PARTITION Key wskazuje na polozenie w klastrze, bylaby to ciezka operacja:
+-- too ordeal operation for Cassandra (adding data here, removing there...)
+-- no transactions in Cassandra as they are not atomic
+   
+SELECT * FROM dbrank WHERE model='MultiModel' AND year=2012 AND name='DynamoDB' AND score=68;
+-- needs ALLOW FILTERING as score is not part of  CLUSTERING KEY
+-- should not be used except for debugging
+
+-- PARTITION KEY is defined, searching 1 node
+SELECT * FROM dbrank WHERE model='MultiModel' AND year=2012 AND name='DynamoDB' AND score=68 ALLOW FILTERING;
+
+-- can skip primary key part
+SELECT * FROM dbrank WHERE year=2012 AND name='DynamoDB' AND score=68 ALLOW FILTERING;
+-- OR:
+SELECT * FROM dbrank WHERE name='DynamoDB' AND score=68 ALLOW FILTERING;
+SELECT * FROM dbrank WHERE name='DynamoDB' ALLOW FILTERING;
+
+      model      |  year |     name     | score
+-------------------+-------+----------------+-------
+      KeyValue | 2012 | DynamoDB |    68
+    MultiModel | 2012 | DynamoDB |    68
+ WideColumn | 2012 | DynamoDB |    68
+     Document | 2012 | DynamoDB |    68
+   
+
+SELECT * FROM dbrank WHERE name='MongoDB' ALLOW FILTERING;
+cqlsh:db_engines> SELECT * FROM dbrank WHERE name='Druid' ALLOW FILTERING;
+
+ model      | year | name  | score
+--------------+-------+---------+-------
+ Relational | 2012 | Druid |     2
+ MultiModel | 2012 | Druid |     2
+ 
+SELECT * FROM dbrank WHERE year=2008 ALLOW FILTERING;
+
+ model      | year | name      | score
+--------------+-------+------------+-------
+ WideColumn | 2008 | Cassandra |   120
+ WideColumn | 2008 |     HBase |    48
+ 
+SELECT * FROM dbrank WHERE year=2010 ALLOW FILTERING;
+
+ model      | year | name            | score
+--------------+-------+-----------------+-------
+ Relational | 2010 | Google BigQuery |    34
+ Relational | 2010 |            Hive |    69
+ Relational | 2010 |        SAP HANA |    54
+ 
+-- elems of PRIMARY KEY can be skipped
+ SELECT * FROM dbrank WHERE score>1000 ALLOW FILTERING;
+
+   model      |  year | name   | score
+----------------+-------+-----------+-------
+  Relational | 1979 |  Oracle |  1368
+  Relational | 1995 |  MySQL |  1256
+  Document | 1979 |  Oracle |  1368
+
+SELECT * FROM dbrank WHERE score<20 ALLOW FILTERING;
+
+    model      |  year |   name      | score
+-----------------+-------+---------------+-------
+   Relational | 2012 |         Druid |     2
+   Relational | 2014 |  Snowflake |     6
+  MultiModel | 2012 |         Druid |     2
+   Document | 2005 |   CouchDB |    17
+
+-- TIME OUT for bigger data
+
+--==================================                  
+-- sets data type
+
+CREATE TABLE engineset (
+  type text,
+  model text,
+  names set<text>,
+  PRIMARY KEY(type)
+  );
+                   
+/wymieni jedne dane na drugie:
+INSERT INTO engineset(type, model, names) VALUES ('nosql','KeyValue', {'Redis','DynamoDB'});                  
+INSERT INTO engineset(type, model, names) VALUES ('nosql','WideColumn', {'Cassandra','HBase','DynamoDB'});             
+
+-- deleting data, leaving schema                                                 
+> TRUNCATE TABLE engineset;
+                                                  
+INSERT INTO engineset(type, model, names) VALUES ('nosql_kv','KeyValue', {'Redis','DynamoDB'});                  
+INSERT INTO engineset(type, model, names) VALUES ('nosql_w','WideColumn', {'Cassandra','HBase','DynamoDB'});
+INSERT INTO engineset(type, model, names) VALUES ('nosql_d','Document', {'Oracle','DynamoDB','Redis','MongoDB'});
+INSERT INTO engineset(type, model, names) VALUES ('sql_1','Relational', {'MySQL','MariaDB','PostgreSQL','Oracle'});                  
+INSERT INTO engineset(type, model, names) VALUES ('sql_2','Relational', {'Hive','Druid','Snowflake'});
+INSERT INTO engineset(type, model, names) VALUES ('sql_3','Relational', {'Teradata','SAP HANA', 'Google BigQuery'});                                                
+
+UPDATE engineset SET names = names + {'Couchbase'} WHERE type = 'nosql_kv';  
+UPDATE engineset SET names = names + {'Amazon Redshift'} WHERE type = 'sql_2';
+                                                  
+-- idempotent operations 
+                                                  
+SELECT * FROM engineset ;
+
+ type     | model      | names
+-----------+-------------+---------------------------------------------------
+    sql_3 | Relational |       {'Google BigQuery', 'SAP HANA', 'Teradata'}
+    sql_1 | Relational |      {'MariaDB', 'MySQL', 'Oracle', 'PostgreSQL'}
+    sql_2 | Relational | {'Amazon Redshift', 'Druid', 'Hive', 'Snowflake'}
+ nosql_kv |   KeyValue |                {'Couchbase', 'DynamoDB', 'Redis'}
+  nosql_d |   Document |        {'DynamoDB', 'MongoDB', 'Oracle', 'Redis'}
+  nosql_w | WideColumn |                {'Cassandra', 'DynamoDB', 'HBase'}
+                                                  
+-- ============================================
+-- list data types - can have duplicates                                                  
+                                                  
+CREATE TABLE enginelists (
+  type text,
+  model text,
+  names list<text>,
+  PRIMARY KEY(type)
+  );                                                  
+ 
+INSERT INTO enginelists(type, model, names) VALUES ('nosql_kv','KeyValue', ['Redis','DynamoDB']);                  
+INSERT INTO enginelists(type, model, names) VALUES ('nosql_w','WideColumn', ['Cassandra','HBase','DynamoDB']);
+INSERT INTO enginelists(type, model, names) VALUES ('nosql_d','Document', ['Oracle','DynamoDB','Redis','MongoDB']);
+INSERT INTO enginelists(type, model, names) VALUES ('sql_1','Relational', ['MySQL','MariaDB','PostgreSQL','Oracle']);                  
+INSERT INTO enginelists(type, model, names) VALUES ('sql_2','Relational', ['Hive','Druid','Snowflake']);
+INSERT INTO enginelists(type, model, names) VALUES ('sql_3','Relational', ['Teradata','SAP HANA', 'Google BigQuery']);                                                
+
+SELECT * FROM enginelists ;
+
+ type     | model      | names
+-----------+-------------+----------------------------------------------
+    sql_3 | Relational |  ['Teradata', 'SAP HANA', 'Google BigQuery']
+    sql_1 | Relational | ['MySQL', 'MariaDB', 'PostgreSQL', 'Oracle']
+    sql_2 | Relational |               ['Hive', 'Druid', 'Snowflake']
+ nosql_kv |   KeyValue |                        ['Redis', 'DynamoDB']
+  nosql_d |   Document |   ['Oracle', 'DynamoDB', 'Redis', 'MongoDB']
+  nosql_w | WideColumn |           ['Cassandra', 'HBase', 'DynamoDB']
+
+UPDATE enginelists SET names = names + ['Couchbase'] WHERE type = 'nosql_kv';  
+-- OR                                                                           
+UPDATE enginelists SET names += ['Couchbase'] WHERE type = 'nosql_kv';                                                                           
+UPDATE enginelists SET names = names + ['Redshift','Spark SQL'] WHERE type = 'sql_2';   
+SELECT * FROM enginelists ;
+
+    type     |     model      | names
+-------------+-----------------+---------------------------------------------------------
+       sql_3 |     Relational |             ['Teradata', 'SAP HANA', 'Google BigQuery']
+       sql_1 |     Relational |            ['MySQL', 'MariaDB', 'PostgreSQL', 'Oracle']
+       sql_2 |     Relational | ['Hive', 'Druid', 'Snowflake', 'Redshift', 'Spark SQL']
+ nosql_kv |      KeyValue |                      ['Redis', 'DynamoDB', 'Couchbase']
+   nosql_d |    Document |              ['Oracle', 'DynamoDB', 'Redis', 'MongoDB']
+  nosql_w | WideColumn |                      ['Cassandra', 'HBase', 'DynamoDB']
+                                                                      
+SELECT * FROM enginelists where type='sql_3';
+
+ type  | model      | names
+--------+--------------+---------------------------------------------
+ sql_3 | Relational | ['Teradata', 'SAP HANA', 'Google BigQuery']   
+   
+-- adding same data to lists                                                                                                                                                      
+UPDATE enginelists SET names += ['Couchbase'] WHERE type = 'nosql_kv';
+-- subtracting 
+UPDATE enginelists SET names -= ['Couchbase'] WHERE type = 'nosql_kv'; 
+                                                                           
+SELECT * FROM enginelists WHERE names CONTAINS 'DynamoDB' ALLOW FILTERING;
+
+    type     |      model      | names
+-------------+------------------+--------------------------------------------
+ nosql_kv |      KeyValue |         ['Redis', 'DynamoDB', 'Couchbase']
+   nosql_d |    Document | ['Oracle', 'DynamoDB', 'Redis', 'MongoDB']
+  nosql_w | WideColumn |         ['Cassandra', 'HBase', 'DynamoDB']
+                                                                           
+SELECT * FROM enginelists WHERE names CONTAINS 'Spark SQL' ALLOW FILTERING;
+
+ type  | model      | names
+--------+-------------+---------------------------------------------------------
+ sql_2 | Relational | ['Hive', 'Druid', 'Snowflake', 'Redshift', 'Spark SQL'] 
+                                                                           
+-- indexes 
+-- changing value
+UPDATE enginelists SET names[4]='SparkSQL' WHERE type='sql_2';
+                                                                           
+SELECT * FROM enginelists WHERE type='sql_2';
+
+ type  | model      | names
+--------+-------------+--------------------------------------------------------
+ sql_2 | Relational | ['Hive', 'Druid', 'Snowflake', 'Redshift', 'SparkSQL']
+
+-- adding col with same name and had diffr data type won't work                                                                         
+-- https://docs.datastax.com/en/cql-oss/3.3/cql/cql_using/useIndexColl.html    
+
+--==================================
+ -- tuples                                                                          
+--  https://docs.datastax.com/en/cql-oss/3.3/cql/cql_reference/tupleType.html
+                                                                           
+CREATE TABLE enginetuples(
+  model text PRIMARY KEY,
+  t tuple <text, int, float>
+  );
+INSERT INTO enginetuples (model, t) VALUES ('Relational',('Oracle',1979,1368.77));                                                          
+INSERT INTO enginetuples (model, t) VALUES ('Relational',('MySQL',1995,1256.38));   
+INSERT INTO enginetuples (model, t) VALUES ('Relational',('PostgreSQL',1996,542.40));
+-- as key is same, the last will overwrite the previous                                                          
+INSERT INTO enginetuples (model, t) VALUES ('Document',('MongoDB',2009,448.02));                                                          
+INSERT INTO enginetuples (model, t) VALUES ('WideColumn',('Cassandra',2008,119.10)); 
+ 
+--=====================================                                                          
+-- Nested tuples/UDTs - user defined types
+-- one primary key needs to be specified       
+                                                          
+CREATE TABLE engine_nested_tuples(
+  type text PRIMARY KEY, model text, 
+  t tuple <text, tuple <int, float>>);
+INSERT INTO engine_nested_tuples (type, model, t) VALUES ('sql_1','Relational',('OracleDB',(1979,1368.77)));                                                          
+INSERT INTO engine_nested_tuples (type, model, t) VALUES ('sql_2','Relational',('MySQL',(1995,1256.38)));
+INSERT INTO engine_nested_tuples (type, model, t) VALUES ('sql_3','Relational',('PostgreSQL',(1996,542.40)));
+                                                                                              
+INSERT INTO engine_nested_tuples (type, model, t) VALUES ('nosql_1','WideColumn',('Cassandra',(2008,119.1)));                                                                                              
+INSERT INTO engine_nested_tuples (type, model, t) VALUES ('nosql_2','Document',('MongoDB',(2009,448)));
+
+SELECT * FROM engine_nested_tuples;
+   type    |           model | t
+------------+-----------------+-----------------------------------
+     sql_3 |     Relational | ('PostgreSQL', (1996, 542.40002))
+ nosql_2 |    Document |          ('MongoDB', (2009, 448))
+     sql_1 |     Relational |  ('OracleDB', (1979, 1368.77002))
+     sql_2 |     Relational |        ('MySQL', (1995, 1256.38))
+ nosql_1 | WideColumn |      ('Cassandra', (2008, 119.1))
+
+SELECT * FROM engine_nested_tuples WHERE type='sql_2';     
+
+--- UDT are similar to tuples  -----------------------------
+CREATE TYPE udt_enginedb(
+  model text,
+  name text,
+  year int,
+  scores frozen<set<float>>
+  );
+-- frozen means that all value needs to be changed
+-- DROP TYPE udt_enginedb;   
+                                            
+CREATE TABLE udt_uuid (  
+  id uuid PRIMARY KEY,
+  udt_enginedb udt_enginedb
+);  
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'Relational', name: 'Oracle', year: 1979, scores: {1368.77}});
+-- the data in curly brackets is not a map as keys are not in quotes                                                
+                                                
+SELECT * FROM udt_uuid ;
+
+id                                                                   | udt_enginedb
+-------------------------------------------------------------+-------------------------------------------------------------------------
+ d4058eba-144b-458e-9b2a-2c5e961075b4 | {model: 'Relational', name: 'Oracle', year: 1979, scores: {1368.77002}}                                                 
+
+-- uuid is not of string type
+                                                
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'WideColumn', name: 'Cassandra', year: 2008, scores: {119.1}});  
+-- frozen set enables refering to specified fields
+                                                
+UPDATE udt_uuid SET udt_enginedb.scores = {1369} WHERE id = d4058eba-144b-458e-9b2a-2c5e961075b4;
+                                                
+SELECT * FROM udt_uuid ;
+   id                                                                | udt_enginedb
+-------------------------------------------------------------+-----------------------------------------------------------------------
+    f4b23ddd-bc53-40e9-b41f-6fa582dd295c | {model: 'WideColumn', name: 'Cassandra', year: 2008, scores: {119.1}}                                 
+ d4058eba-144b-458e-9b2a-2c5e961075b4 | {model: 'Relational', name: 'Oracle', year: 1979, scores: {1369}}
+                                                
+SELECT udt_enginedb.model FROM udt_uuid; 
+ udt_enginedb.model
+--------------------
+         WideColumn
+         Relational
+
+-- more inserts:                                                
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'WideColumn', name: 'HBase', year: 2008, scores: {48.36}});  
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'WideColumn', name: 'DynamoDB', year: 2012, scores: {68.41}}); 
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'Document', name: 'MongoDB', year: 2009, scores: {448.02}});                                                
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'Document', name: 'Redis', year: 2009, scores: {153.28}});                                                
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'Relational', name: 'Teradata', year: 1979, scores: {75.79}});
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'Relational', name: 'Hive', year: 2010, scores: {69.55}}); 
+INSERT INTO udt_uuid (id, udt_enginedb) VALUES (  uuid(), {
+ model: 'Relational', name: 'SAP HANA', year: 2010, scores: {54.24}});
+                                                
+-- DISTINCT_is only on PRIMARY KEY in Cassandra
+-- https://docs.datastax.com/en/dse/6.0/cql/cql/cql_using/refCollectionType.html
+                                                
+--  Non-frozen types allow updates to individual fields, but 
+-- values in a frozen collection are treated like blobs, 
+-- any upsert overwrites the entire value.
+ 
+--=======================================                                                
+-- maps
+CREATE TABLE enginedb_map (
+  model text PRIMARY KEY,   
+  type text,
+  db map<text,text> );
+                                                
+INSERT INTO enginedb_map(model, type, db) VALUES 
+ ('sql_1','Relational',{'name':'OracleDB', 'year':'1979'});
+INSERT INTO enginedb_map(model, type, db) VALUES 
+ ('sql_2','Document',{'name':'OracleDB', 'year':'1979'});  
+INSERT INTO enginedb_map(model, type, db) VALUES 
+ ('nosql_1','Document',{'name':'DynamoDB', 'year':'2012'});  
+INSERT INTO enginedb_map(model, type, db) VALUES 
+ ('nosql_2','KeyValue',{'name':'DynamoDB', 'year':'2012'});
+INSERT INTO enginedb_map(model, type, db) VALUES 
+ ('nosql_3','WideColumn',{'name':'DynamoDB', 'year':'2012'});
+INSERT INTO enginedb_map(model, type, db) VALUES 
+ ('nosql_4','type',{'name':'MongoDB', 'year':'0000'});
+  
+SELECT * FROM enginedb_map;
+ model |      db                                                | type
+----------+-------------------------------------------------+------------
+   sql_1 | {'name': 'OracleDB', 'year': '1979'} | Relational
+
+  
+SELECT * FROM enginedb_map WHERE db['name'] = 'OracleDB' ALLOW FILTERING;
+                                               
+UPDATE enginedb_map SET db['year']='2009' WHERE model='nosql_4';                                                
+UPDATE enginedb_map SET type = 'Document' WHERE model='nosql_4';                                                
+
+SELECT * FROM enginedb_map;
+ model   |                      db                                   | type
+------------+----------------------------------------------------+------------
+ nosql_2 | {'name': 'DynamoDB', 'year': '2012'} |   KeyValue
+   sql_1   |    {'name': 'OracleDB', 'year': '1979'} | Relational
+   sql_2   |    {'name': 'OracleDB', 'year': '1979'} |   Document
+ nosql_4 |    {'name': 'MongoDB', 'year': '2009'} |   Document
+ nosql_3 | {'name': 'DynamoDB', 'year': '2012'} | WideColumn
+ nosql_1 | {'name': 'DynamoDB', 'year': '2012'} |   Document
+
+-- upsert of new data  
+UPDATE enginedb_map SET type='Relational',db['name']='Teradata',
+  db['year']='1979' WHERE model='sql_3';
+UPDATE enginedb_map SET type='Relational',db['name']='Druid',
+  db['year']='2012' WHERE model='sql_4'; 
+  
+-- adding another dict to map:
+UPDATE enginedb_map SET db['score']='448' WHERE model='nosql_4';  
+UPDATE enginedb_map SET db['score']='1368' WHERE model='sql_1'; -- only one restriction with equal
+DELETE FROM enginedb_map WHERE model='nosql_4'; 
+  
+-- creating index on map entries (db col) to find year 
+-- https://docs.datastax.com/en/cql-oss/3.3/cql/cql_using/useIndexColl.html
+  
+CREATE INDEX db_index ON enginedb_map (ENTRIES(db)); 
+SELECT * FROM enginedb_map WHERE db['year'] = '2012';                                               
+ 
+ model   | db                                                        | type
+------------+----------------------------------------------------+------------
+ nosql_2 | {'name': 'DynamoDB', 'year': '2012'} |   KeyValue
+     sql_4 |          {'name': 'Druid', 'year': '2012'} | Relational
+ nosql_3 | {'name': 'DynamoDB', 'year': '2012'} | WideColumn
+ nosql_1 | {'name': 'DynamoDB', 'year': '2012'} |   Document
+                                               
+SELECT * FROM enginedb_map WHERE db['name'] = 'DynamoDB';                                              
+ 
+ model   | db                                                        | type
+------------+----------------------------------------------------+------------
+ nosql_2 | {'name': 'DynamoDB', 'year': '2012'} |   KeyValue
+ nosql_3 | {'name': 'DynamoDB', 'year': '2012'} | WideColumn
+ nosql_1 | {'name': 'DynamoDB', 'year': '2012'} |   Document
+
+-- creating index on map values to find particular value
+CREATE INDEX db_valindex ON enginedb_map (VALUES(db));
+SELECT * FROM enginedb_map WHERE db CONTAINS '2009';  
+SELECT * FROM enginedb_map WHERE db CONTAINS 'MongoDB'; 
+                                                 
+ model   | db                                                     | type
+-----------+--------------------------------------------------+----------
+ nosql_4 | {'name': 'MongoDB', 'year': '2009'} | Document
+
+--================================================
+--saving to csv
+
+$ docker run -v /path/from/host:/path/within/container  <image> 
+$ docker run -v /home/me/docker/results:/data/results <image>
+
+-- cp - Copy files/folders between a container and the local filesystem
+$ docker cp <myimageid>:/path/to/the/file/on/the/container /home/me/docker/results
+
+$ sudo docker cp ef9d3a404f68:/dbrank.csv /home/dona/Downloads/
+$ sudo docker exec -it cass /bin/bash
+-- data to  csv:                                                 
+-- in cqlsh:
+cqlsh:db_engines> 
+COPY dbrank(model, year, name, score) TO 'dbrank.csv' WITH HEADER=TRUE;                                                
+COPY engineset(type, model, names) TO 'engineset.csv' WITH HEADER=TRUE;
+COPY enginelists(type, model, names) TO 'enginelists.csv' WITH HEADER=TRUE;
+COPY enginetuples(model, t) TO 'enginetuples.csv' WITH HEADER=TRUE;
+COPY engine_nested_tuples(type, model, t) TO 'engine_nested_tuples.csv' WITH HEADER=TRUE;
+COPY udt_uuid(id,udt_enginedb) TO 'udt_uuid.csv' WITH HEADER=TRUE;
+COPY enginedb_map(model,type, db) TO 'enginedb_map.csv' WITH HEADER=TRUE;
+
+>exit
+sudo docker cp ef9d3a404f68:/engineset.csv /home/dona/Downloads/
+sudo docker cp ef9d3a404f68:/enginelists.csv /home/dona/Downloads/
+sudo docker cp ef9d3a404f68:/enginetuples.csv /home/dona/Downloads/
+sudo docker cp ef9d3a404f68:/engine_nested_tuples.csv /home/dona/Downloads/
+sudo docker cp ef9d3a404f68:/udt_uuid.csv /home/dona/Downloads/
+sudo docker cp ef9d3a404f68:/enginedb_map.csv /home/dona/Downloads/
+
+
+
